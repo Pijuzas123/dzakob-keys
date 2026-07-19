@@ -633,19 +633,6 @@ spTitle.TextXAlignment = Enum.TextXAlignment.Left
 spTitle.ZIndex = 6
 spTitle.Parent = settingsPanel
 
-local spClose = Instance.new("TextButton")
-spClose.Size = UDim2.new(0, 24, 0, 24)
-spClose.Position = UDim2.new(1, -34, 0, 12)
-spClose.BackgroundTransparency = 1
-spClose.Text = "✕"
-spClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-spClose.TextTransparency = 0.3
-spClose.TextSize = 14
-spClose.Font = Enum.Font.Gotham
-spClose.ZIndex = 6
-spClose.Parent = settingsPanel
-
-spClose.MouseButton1Click:Connect(function() settingsPanel.Visible = false end)
 settingsBtn.MouseButton1Click:Connect(function() settingsPanel.Visible = not settingsPanel.Visible end)
 
 -- setting rows
@@ -754,45 +741,69 @@ ndc.CornerRadius = UDim.new(0, 8)
 ndc.Parent = notifDropBtn
 
 local notifMenu = Instance.new("Frame")
-notifMenu.Size = UDim2.new(0, 120, 0, 128)
-notifMenu.Position = UDim2.new(1, -134, 0.5, 18)
-notifMenu.BackgroundColor3 = Color3.fromRGB(30, 20, 55)
+notifMenu.Size = UDim2.new(0, 140, 0, 152)
+notifMenu.Position = UDim2.new(1, -140, 0.5, 20)
+notifMenu.BackgroundColor3 = Color3.fromRGB(28, 20, 48)
 notifMenu.BorderSizePixel = 0
 notifMenu.Visible = false
-notifMenu.ZIndex = 20
+notifMenu.ZIndex = 100
 notifMenu.Parent = rowNotif
 local nmc = Instance.new("UICorner")
-nmc.CornerRadius = UDim.new(0, 8)
+nmc.CornerRadius = UDim.new(0, 10)
 nmc.Parent = notifMenu
+local nmStroke = Instance.new("UIStroke")
+nmStroke.Color = Color3.fromRGB(255, 255, 255)
+nmStroke.Transparency = 0.85
+nmStroke.Thickness = 1
+nmStroke.Parent = notifMenu
 local nmLayout = Instance.new("UIListLayout")
-nmLayout.Padding = UDim.new(0, 2)
+nmLayout.Padding = UDim.new(0, 3)
 nmLayout.Parent = notifMenu
 local nmPad = Instance.new("UIPadding")
-nmPad.PaddingTop = UDim.new(0, 4)
-nmPad.PaddingLeft = UDim.new(0, 4)
-nmPad.PaddingRight = UDim.new(0, 4)
+nmPad.PaddingTop = UDim.new(0, 6)
+nmPad.PaddingBottom = UDim.new(0, 6)
+nmPad.PaddingLeft = UDim.new(0, 6)
+nmPad.PaddingRight = UDim.new(0, 6)
 nmPad.Parent = notifMenu
 
+local currentNotif = "tr"
+
+local notifItems = {}
 for _, opt in {{v="tr",l="Top Right"},{v="tl",l="Top Left"},{v="br",l="Bottom Right"},{v="bl",l="Bottom Left"}} do
     local it = Instance.new("TextButton")
-    it.Size = UDim2.new(1, -8, 0, 26)
-    it.BackgroundTransparency = 1
+    it.Size = UDim2.new(1, 0, 0, 28)
+    it.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    it.BackgroundTransparency = opt.v == currentNotif and 0.8 or 1
     it.BorderSizePixel = 0
     it.Text = opt.l
     it.TextColor3 = Color3.fromRGB(255, 255, 255)
-    it.TextSize = 11
-    it.Font = Enum.Font.Gotham
-    it.ZIndex = 21
+    it.TextSize = 12
+    it.Font = Enum.Font.GothamMedium
+    it.ZIndex = 101
+    it.AutoButtonColor = false
     it.Parent = notifMenu
     local itc = Instance.new("UICorner")
-    itc.CornerRadius = UDim.new(0, 6)
+    itc.CornerRadius = UDim.new(0, 7)
     itc.Parent = it
+    notifItems[opt.v] = it
+
+    it.MouseEnter:Connect(function()
+        if currentNotif ~= opt.v then it.BackgroundTransparency = 0.9 end
+    end)
+    it.MouseLeave:Connect(function()
+        it.BackgroundTransparency = currentNotif == opt.v and 0.8 or 1
+    end)
     it.MouseButton1Click:Connect(function()
-        notifDropBtn.Text = opt.l .. "  ▼"
+        currentNotif = opt.v
+        notifDropBtn.Text = opt.l .. "  ▾"
+        for v, ii in notifItems do
+            ii.BackgroundTransparency = v == currentNotif and 0.8 or 1
+        end
         notifMenu.Visible = false
         if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner(opt.v) end
     end)
 end
+notifDropBtn.Text = "Top Right  ▾"
 notifDropBtn.MouseButton1Click:Connect(function() notifMenu.Visible = not notifMenu.Visible end)
 
 -- row 3: toggle keybind (press to rebind)
