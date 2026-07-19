@@ -723,88 +723,104 @@ track3d.MouseButton1Click:Connect(function()
     end
 end)
 
--- row 2: notification corner dropdown
+-- row 2: notification corner segmented control (4 tiny corner indicators)
 local rowNotif = makeRow(114, "Notification Corner", "Where notifications appear on screen")
-local notifDropBtn = Instance.new("TextButton")
-notifDropBtn.Size = UDim2.new(0, 120, 0, 28)
-notifDropBtn.Position = UDim2.new(1, -134, 0.5, -14)
-notifDropBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-notifDropBtn.BorderSizePixel = 0
-notifDropBtn.Text = "Top Right  ▼"
-notifDropBtn.TextColor3 = Color3.fromRGB(30, 30, 50)
-notifDropBtn.TextSize = 11
-notifDropBtn.Font = Enum.Font.GothamBold
-notifDropBtn.ZIndex = 7
-notifDropBtn.Parent = rowNotif
-local ndc = Instance.new("UICorner")
-ndc.CornerRadius = UDim.new(0, 8)
-ndc.Parent = notifDropBtn
 
-local notifMenu = Instance.new("Frame")
-notifMenu.Size = UDim2.new(0, 140, 0, 152)
-notifMenu.Position = UDim2.new(1, -140, 0.5, 20)
-notifMenu.BackgroundColor3 = Color3.fromRGB(28, 20, 48)
-notifMenu.BorderSizePixel = 0
-notifMenu.Visible = false
-notifMenu.ZIndex = 100
-notifMenu.Parent = rowNotif
-local nmc = Instance.new("UICorner")
-nmc.CornerRadius = UDim.new(0, 10)
-nmc.Parent = notifMenu
-local nmStroke = Instance.new("UIStroke")
-nmStroke.Color = Color3.fromRGB(255, 255, 255)
-nmStroke.Transparency = 0.85
-nmStroke.Thickness = 1
-nmStroke.Parent = notifMenu
-local nmLayout = Instance.new("UIListLayout")
-nmLayout.Padding = UDim.new(0, 3)
-nmLayout.Parent = notifMenu
-local nmPad = Instance.new("UIPadding")
-nmPad.PaddingTop = UDim.new(0, 6)
-nmPad.PaddingBottom = UDim.new(0, 6)
-nmPad.PaddingLeft = UDim.new(0, 6)
-nmPad.PaddingRight = UDim.new(0, 6)
-nmPad.Parent = notifMenu
+local segFrame = Instance.new("Frame")
+segFrame.Size = UDim2.new(0, 132, 0, 34)
+segFrame.Position = UDim2.new(1, -146, 0.5, -17)
+segFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+segFrame.BackgroundTransparency = 0.9
+segFrame.BorderSizePixel = 0
+segFrame.ZIndex = 7
+segFrame.Parent = rowNotif
+
+local segCorner = Instance.new("UICorner")
+segCorner.CornerRadius = UDim.new(0, 8)
+segCorner.Parent = segFrame
+
+local segLayout = Instance.new("UIListLayout")
+segLayout.FillDirection = Enum.FillDirection.Horizontal
+segLayout.Padding = UDim.new(0, 2)
+segLayout.Parent = segFrame
+
+local segPad = Instance.new("UIPadding")
+segPad.PaddingTop = UDim.new(0, 3)
+segPad.PaddingBottom = UDim.new(0, 3)
+segPad.PaddingLeft = UDim.new(0, 3)
+segPad.PaddingRight = UDim.new(0, 3)
+segPad.Parent = segFrame
 
 local currentNotif = "tr"
+local segItems = {}
+local corners = {
+    {v="tl", ax=0.15, ay=0.25},
+    {v="tr", ax=0.85, ay=0.25},
+    {v="bl", ax=0.15, ay=0.75},
+    {v="br", ax=0.85, ay=0.75},
+}
 
-local notifItems = {}
-for _, opt in {{v="tr",l="Top Right"},{v="tl",l="Top Left"},{v="br",l="Bottom Right"},{v="bl",l="Bottom Left"}} do
-    local it = Instance.new("TextButton")
-    it.Size = UDim2.new(1, 0, 0, 28)
-    it.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    it.BackgroundTransparency = opt.v == currentNotif and 0.8 or 1
-    it.BorderSizePixel = 0
-    it.Text = opt.l
-    it.TextColor3 = Color3.fromRGB(255, 255, 255)
-    it.TextSize = 12
-    it.Font = Enum.Font.GothamMedium
-    it.ZIndex = 101
-    it.AutoButtonColor = false
-    it.Parent = notifMenu
-    local itc = Instance.new("UICorner")
-    itc.CornerRadius = UDim.new(0, 7)
-    itc.Parent = it
-    notifItems[opt.v] = it
+-- reorder for visual: tl tr bl br
+for _, opt in corners do
+    local seg = Instance.new("TextButton")
+    seg.Size = UDim2.new(0, 30, 1, 0)
+    seg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    seg.BackgroundTransparency = opt.v == currentNotif and 0.15 or 0.85
+    seg.BorderSizePixel = 0
+    seg.Text = ""
+    seg.AutoButtonColor = false
+    seg.ZIndex = 8
+    seg.Parent = segFrame
 
-    it.MouseEnter:Connect(function()
-        if currentNotif ~= opt.v then it.BackgroundTransparency = 0.9 end
-    end)
-    it.MouseLeave:Connect(function()
-        it.BackgroundTransparency = currentNotif == opt.v and 0.8 or 1
-    end)
-    it.MouseButton1Click:Connect(function()
+    local sc = Instance.new("UICorner")
+    sc.CornerRadius = UDim.new(0, 6)
+    sc.Parent = seg
+
+    -- corner indicator dot
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 6, 0, 6)
+    dot.Position = UDim2.new(opt.ax, -3, opt.ay, -3)
+    dot.BackgroundColor3 = opt.v == currentNotif and Color3.fromRGB(30, 30, 50) or Color3.fromRGB(255, 255, 255)
+    dot.BackgroundTransparency = opt.v == currentNotif and 0 or 0.5
+    dot.BorderSizePixel = 0
+    dot.ZIndex = 9
+    dot.Parent = seg
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(1, 0)
+    dotCorner.Parent = dot
+
+    -- small rectangle showing the box shape
+    local box = Instance.new("Frame")
+    box.Size = UDim2.new(0, 18, 0, 14)
+    box.Position = UDim2.new(0.5, -9, 0.5, -7)
+    box.BackgroundTransparency = 1
+    box.BorderSizePixel = 0
+    box.ZIndex = 8
+    box.Parent = seg
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Color = opt.v == currentNotif and Color3.fromRGB(30, 30, 50) or Color3.fromRGB(255, 255, 255)
+    boxStroke.Transparency = opt.v == currentNotif and 0 or 0.6
+    boxStroke.Thickness = 1
+    boxStroke.Parent = box
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 2)
+    boxCorner.Parent = box
+
+    segItems[opt.v] = {seg = seg, dot = dot, stroke = boxStroke}
+
+    seg.MouseButton1Click:Connect(function()
         currentNotif = opt.v
-        notifDropBtn.Text = opt.l .. "  ▾"
-        for v, ii in notifItems do
-            ii.BackgroundTransparency = v == currentNotif and 0.8 or 1
+        for v, refs in segItems do
+            local active = v == currentNotif
+            TweenService:Create(refs.seg, TweenInfo.new(0.15), {BackgroundTransparency = active and 0.15 or 0.85}):Play()
+            refs.dot.BackgroundColor3 = active and Color3.fromRGB(30, 30, 50) or Color3.fromRGB(255, 255, 255)
+            refs.dot.BackgroundTransparency = active and 0 or 0.5
+            refs.stroke.Color = active and Color3.fromRGB(30, 30, 50) or Color3.fromRGB(255, 255, 255)
+            refs.stroke.Transparency = active and 0 or 0.6
         end
-        notifMenu.Visible = false
         if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner(opt.v) end
     end)
 end
-notifDropBtn.Text = "Top Right  ▾"
-notifDropBtn.MouseButton1Click:Connect(function() notifMenu.Visible = not notifMenu.Visible end)
 
 -- row 3: toggle keybind (press to rebind)
 local rowKey = makeRow(180, "Menu Toggle Key", "Click, then press any key to bind")
