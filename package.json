@@ -1,0 +1,6 @@
+{
+  "name": "dzakob-keys",
+  "version": "1.0.0",
+  "description": "dzakob hub key server",
+  "main": "index.js"
+}
