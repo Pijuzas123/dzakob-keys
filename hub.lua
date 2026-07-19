@@ -68,6 +68,56 @@ local Games = {
                 end
             }
         }
+    },
+    {
+        Name = "Settings",
+        PlaceId = "all",
+        Scripts = {
+            {
+                Name = "Disable 3D Rendering",
+                Description = "Reduce graphics quality for FPS boost",
+                Type = "toggle",
+                Run = function()
+                    local savedQL = settings().Rendering.QualityLevel
+                    settings().Rendering.QualityLevel = 1
+                    pcall(function() setfpscap(240) end)
+                    while _G.hub_toggles["Disable 3D Rendering"] do task.wait(1) end
+                    settings().Rendering.QualityLevel = savedQL
+                end
+            },
+            {
+                Name = "Notifications: Top Right",
+                Description = "Show notifications in top right corner",
+                Type = "button",
+                Run = function()
+                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("tr") end
+                end
+            },
+            {
+                Name = "Notifications: Top Left",
+                Description = "Show notifications in top left corner",
+                Type = "button",
+                Run = function()
+                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("tl") end
+                end
+            },
+            {
+                Name = "Notifications: Bottom Right",
+                Description = "Show notifications in bottom right corner",
+                Type = "button",
+                Run = function()
+                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("br") end
+                end
+            },
+            {
+                Name = "Notifications: Bottom Left",
+                Description = "Show notifications in bottom left corner",
+                Type = "button",
+                Run = function()
+                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("bl") end
+                end
+            }
+        }
     }
 }
 
@@ -342,11 +392,11 @@ backdropGradient.Color = ColorSequence.new{
 backdropGradient.Rotation = 135
 backdropGradient.Parent = backdrop
 
--- glass main
+-- glass main (fills backdrop entirely, no outer margin)
 local main = Instance.new("Frame")
 main.Name = "Main"
-main.Size = UDim2.new(1, -24, 1, -24)
-main.Position = UDim2.new(0, 12, 0, 12)
+main.Size = UDim2.new(1, 0, 1, 0)
+main.Position = UDim2.new(0, 0, 0, 0)
 main.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 main.BackgroundTransparency = 0.94
 main.BorderSizePixel = 0
@@ -430,29 +480,18 @@ gameIndicator.TextXAlignment = Enum.TextXAlignment.Left
 gameIndicator.TextWrapped = true
 gameIndicator.Parent = main
 
--- close button
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 36, 0, 36)
-closeBtn.Position = UDim2.new(1, -40, 0, 5)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextTransparency = 0.3
-closeBtn.TextSize = 14
-closeBtn.Font = Enum.Font.Gotham
-closeBtn.Parent = titleBar
-
--- minimize button
-local minBtn = Instance.new("TextButton")
-minBtn.Size = UDim2.new(0, 36, 0, 36)
-minBtn.Position = UDim2.new(1, -72, 0, 5)
-minBtn.BackgroundTransparency = 1
-minBtn.Text = "⎯"
-minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-minBtn.TextTransparency = 0.3
-minBtn.TextSize = 14
-minBtn.Font = Enum.Font.Gotham
-minBtn.Parent = titleBar
+-- hint label
+local hintLabel = Instance.new("TextLabel")
+hintLabel.Size = UDim2.new(0, 130, 0, 14)
+hintLabel.Position = UDim2.new(1, -142, 0, 18)
+hintLabel.BackgroundTransparency = 1
+hintLabel.Text = "LeftAlt to toggle"
+hintLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+hintLabel.TextTransparency = 0.55
+hintLabel.TextSize = 10
+hintLabel.Font = Enum.Font.Gotham
+hintLabel.TextXAlignment = Enum.TextXAlignment.Right
+hintLabel.Parent = titleBar
 
 -- tabs (horizontal pills, not sidebar anymore)
 local tabsBar = Instance.new("Frame")
@@ -588,6 +627,27 @@ end
 
 _G.dzakob_notify = notify
 
+_G.dzakob_setNotifCorner = function(corner)
+    if corner == "tr" then
+        notifRoot.Position = UDim2.new(1, -270, 0, 10)
+        notifRoot.AnchorPoint = Vector2.new(0, 0)
+        notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    elseif corner == "tl" then
+        notifRoot.Position = UDim2.new(0, 10, 0, 10)
+        notifRoot.AnchorPoint = Vector2.new(0, 0)
+        notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    elseif corner == "br" then
+        notifRoot.Position = UDim2.new(1, -270, 1, -10)
+        notifRoot.AnchorPoint = Vector2.new(0, 1)
+        notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    elseif corner == "bl" then
+        notifRoot.Position = UDim2.new(0, 10, 1, -10)
+        notifRoot.AnchorPoint = Vector2.new(0, 1)
+        notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    end
+    notify("Notification position updated", "success")
+end
+
 -- =====================
 -- DRAGGING
 -- =====================
@@ -611,25 +671,13 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
 end)
 
 -- =====================
--- MINIMIZE / CLOSE
+-- LEFT ALT TOGGLE
 -- =====================
-local minimized = false
-local fullSize = backdrop.Size
-
-minBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    if minimized then
-        TweenService:Create(backdrop, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 500, 0, 58)}):Play()
-    else
-        TweenService:Create(backdrop, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = fullSize}):Play()
+game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.LeftAlt then
+        backdrop.Visible = not backdrop.Visible
     end
-end)
-
-closeBtn.MouseButton1Click:Connect(function()
-    for k in _G.hub_toggles do
-        _G.hub_toggles[k] = false
-    end
-    gui:Destroy()
 end)
 
 -- =====================
