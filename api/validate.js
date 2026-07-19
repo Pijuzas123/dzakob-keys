@@ -4,9 +4,15 @@ const SECRET = process.env.KEY_SECRET || "dzakob-change-me-2026";
 const HUB_NAME = "dzakob";
 const GRACE_DAYS = 1;
 
-function keyForDay(day) {
-    const hash = crypto.createHash('sha256').update(day + SECRET).digest('hex');
-    return HUB_NAME + "-" + hash.slice(0, 16);
+function getIP(req) {
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) return fwd.split(',')[0].trim();
+    return req.headers['x-real-ip'] || req.socket?.remoteAddress || "0.0.0.0";
+}
+
+function keyForDayAndIP(day, ip) {
+    const hash = crypto.createHash('sha256').update(day + ip + SECRET).digest('hex');
+    return HUB_NAME + "-" + hash.slice(0, 20);
 }
 
 module.exports = (req, res) => {
@@ -18,9 +24,10 @@ module.exports = (req, res) => {
         return res.status(400).json({ valid: false, error: "missing key" });
     }
 
+    const ip = getIP(req);
     const today = Math.floor(Date.now() / 86400000);
     for (let i = 0; i <= GRACE_DAYS; i++) {
-        if (key === keyForDay(today - i)) {
+        if (key === keyForDayAndIP(today - i, ip)) {
             return res.status(200).json({ valid: true });
         }
     }
