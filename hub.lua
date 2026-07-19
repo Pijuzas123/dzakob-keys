@@ -90,11 +90,18 @@ local Games = {
             },
             {
                 Name = "Notification Corner",
-                Description = "Click to cycle: TR → TL → BR → BL",
-                Type = "cycle",
-                Cycle = {"tr", "tl", "br", "bl"},
-                Labels = {tr = "Top Right", tl = "Top Left", br = "Bottom Right", bl = "Bottom Left"},
-                Run = function() end
+                Description = "Pick which corner notifications appear in",
+                Type = "dropdown",
+                Options = {
+                    {value = "tr", label = "Top Right"},
+                    {value = "tl", label = "Top Left"},
+                    {value = "br", label = "Bottom Right"},
+                    {value = "bl", label = "Bottom Left"},
+                },
+                Default = "tr",
+                OnSelect = function(value)
+                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner(value) end
+                end
             }
         }
     }
@@ -487,36 +494,11 @@ tabsLayout.Parent = tabsBar
 
 local sidebar = tabsBar -- alias for existing code
 
--- search bar (below tabs)
-local searchBar = Instance.new("TextBox")
-searchBar.Size = UDim2.new(1, -24, 0, 32)
-searchBar.Position = UDim2.new(0, 12, 0, 94)
-searchBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-searchBar.BackgroundTransparency = 0.92
-searchBar.BorderSizePixel = 0
-searchBar.PlaceholderText = "Search scripts..."
-searchBar.PlaceholderColor3 = Color3.fromRGB(255, 255, 255)
-searchBar.Text = ""
-searchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-searchBar.TextSize = 12
-searchBar.Font = Enum.Font.Gotham
-searchBar.TextXAlignment = Enum.TextXAlignment.Left
-searchBar.ClearTextOnFocus = false
-searchBar.Parent = main
-
-local sbCorner = Instance.new("UICorner")
-sbCorner.CornerRadius = UDim.new(0, 10)
-sbCorner.Parent = searchBar
-
-local sbPad = Instance.new("UIPadding")
-sbPad.PaddingLeft = UDim.new(0, 12)
-sbPad.Parent = searchBar
-
 -- content area
 local content = Instance.new("ScrollingFrame")
 content.Name = "Content"
-content.Size = UDim2.new(1, -24, 1, -160)
-content.Position = UDim2.new(0, 12, 0, 134)
+content.Size = UDim2.new(1, -24, 1, -120)
+content.Position = UDim2.new(0, 12, 0, 94)
 content.BackgroundTransparency = 1
 content.BorderSizePixel = 0
 content.ScrollBarThickness = 3
@@ -764,32 +746,103 @@ local function createScriptCard(scriptData)
                 _G.dzakob_notify(scriptData.Name .. " stopped")
             end
         end)
-    elseif scriptData.Type == "cycle" then
-        _G.hub_cycle = _G.hub_cycle or {}
-        _G.hub_cycle[scriptData.Name] = _G.hub_cycle[scriptData.Name] or 1
+    elseif scriptData.Type == "dropdown" then
+        _G.hub_dropdown = _G.hub_dropdown or {}
+        local current = _G.hub_dropdown[scriptData.Name] or scriptData.Default
+
+        local function labelFor(v)
+            for _, opt in scriptData.Options do
+                if opt.value == v then return opt.label end
+            end
+            return v
+        end
 
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 100, 0, 28)
-        btn.Position = UDim2.new(1, -114, 0.5, -14)
+        btn.Size = UDim2.new(0, 120, 0, 28)
+        btn.Position = UDim2.new(1, -134, 0.5, -14)
         btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         btn.BorderSizePixel = 0
         btn.TextColor3 = Color3.fromRGB(30, 30, 50)
         btn.TextSize = 11
         btn.Font = Enum.Font.GothamBold
-        btn.Text = scriptData.Labels[scriptData.Cycle[_G.hub_cycle[scriptData.Name]]]
+        btn.Text = labelFor(current) .. "  ▼"
         btn.Parent = card
+        btn.ZIndex = 3
 
         local btnCorner = Instance.new("UICorner")
         btnCorner.CornerRadius = UDim.new(0, 8)
         btnCorner.Parent = btn
 
+        local menu = Instance.new("Frame")
+        menu.Size = UDim2.new(0, 120, 0, #scriptData.Options * 30 + 8)
+        menu.Position = UDim2.new(1, -134, 0.5, 18)
+        menu.BackgroundColor3 = Color3.fromRGB(30, 20, 55)
+        menu.BorderSizePixel = 0
+        menu.Visible = false
+        menu.ZIndex = 10
+        menu.Parent = card
+
+        local menuCorner = Instance.new("UICorner")
+        menuCorner.CornerRadius = UDim.new(0, 8)
+        menuCorner.Parent = menu
+
+        local menuStroke = Instance.new("UIStroke")
+        menuStroke.Color = Color3.fromRGB(255, 255, 255)
+        menuStroke.Transparency = 0.8
+        menuStroke.Thickness = 1
+        menuStroke.Parent = menu
+
+        local menuLayout = Instance.new("UIListLayout")
+        menuLayout.Padding = UDim.new(0, 2)
+        menuLayout.Parent = menu
+
+        local menuPad = Instance.new("UIPadding")
+        menuPad.PaddingTop = UDim.new(0, 4)
+        menuPad.PaddingLeft = UDim.new(0, 4)
+        menuPad.PaddingRight = UDim.new(0, 4)
+        menuPad.Parent = menu
+
+        for _, opt in scriptData.Options do
+            local item = Instance.new("TextButton")
+            item.Size = UDim2.new(1, -8, 0, 26)
+            item.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            item.BackgroundTransparency = current == opt.value and 0.8 or 1
+            item.BorderSizePixel = 0
+            item.Text = opt.label
+            item.TextColor3 = Color3.fromRGB(255, 255, 255)
+            item.TextSize = 11
+            item.Font = Enum.Font.Gotham
+            item.ZIndex = 11
+            item.Parent = menu
+
+            local itemCorner = Instance.new("UICorner")
+            itemCorner.CornerRadius = UDim.new(0, 6)
+            itemCorner.Parent = item
+
+            item.MouseEnter:Connect(function()
+                if _G.hub_dropdown[scriptData.Name] ~= opt.value then
+                    item.BackgroundTransparency = 0.9
+                end
+            end)
+            item.MouseLeave:Connect(function()
+                item.BackgroundTransparency = _G.hub_dropdown[scriptData.Name] == opt.value and 0.8 or 1
+            end)
+
+            item.MouseButton1Click:Connect(function()
+                _G.hub_dropdown[scriptData.Name] = opt.value
+                btn.Text = opt.label .. "  ▼"
+                for _, sib in menu:GetChildren() do
+                    if sib:IsA("TextButton") then
+                        sib.BackgroundTransparency = sib.Text == opt.label and 0.8 or 1
+                    end
+                end
+                menu.Visible = false
+                if scriptData.OnSelect then scriptData.OnSelect(opt.value) end
+            end)
+        end
+
         btn.MouseButton1Click:Connect(function()
-            _G.hub_cycle[scriptData.Name] = (_G.hub_cycle[scriptData.Name] % #scriptData.Cycle) + 1
-            local val = scriptData.Cycle[_G.hub_cycle[scriptData.Name]]
-            btn.Text = scriptData.Labels[val]
-            if scriptData.Name == "Notification Corner" and _G.dzakob_setNotifCorner then
-                _G.dzakob_setNotifCorner(val)
-            end
+            menu.Visible = not menu.Visible
         end)
     else
         local btn = Instance.new("TextButton")
@@ -823,19 +876,9 @@ local function createScriptCard(scriptData)
     card.Name = scriptData.Name
 end
 
-searchBar:GetPropertyChangedSignal("Text"):Connect(function()
-    local q = searchBar.Text:lower()
-    for _, c in content:GetChildren() do
-        if c:IsA("Frame") then
-            c.Visible = q == "" or (c.Name:lower():find(q, 1, true) ~= nil)
-        end
-    end
-end)
-
 local function loadTab(gameData)
     clearContent()
     activeTab = gameData.Name
-    searchBar.Text = ""
 
     for _, tabBtn in tabButtons do
         if tabBtn.Name == gameData.Name then
