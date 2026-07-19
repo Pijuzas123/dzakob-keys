@@ -948,7 +948,7 @@ end
 if not detectedGame then
     gameIndicator.Text = "Game not recognized (PlaceId: " .. currentPlaceId .. ")"
     gameIndicator.TextColor3 = Color3.fromRGB(200, 200, 100)
-    -- load universal by default
+    -- load first all-games tab (Settings) by default
     for _, gameData in Games do
         if gameData.PlaceId == "all" then
             task.defer(function() loadTab(gameData) end)
