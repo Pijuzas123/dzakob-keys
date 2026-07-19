@@ -15,6 +15,8 @@ function keyForDayAndIP(day, ip) {
     return HUB_NAME + "-" + hash.slice(0, 20);
 }
 
+const ADMIN_KEYS = (process.env.ADMIN_KEYS || "").split(",").map(k => k.trim()).filter(Boolean);
+
 module.exports = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
@@ -22,6 +24,10 @@ module.exports = (req, res) => {
     const key = (req.query.key || "").trim();
     if (!key) {
         return res.status(400).json({ valid: false, error: "missing key" });
+    }
+
+    if (ADMIN_KEYS.includes(key)) {
+        return res.status(200).json({ valid: true, admin: true });
     }
 
     const ip = getIP(req);
