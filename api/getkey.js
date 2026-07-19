@@ -22,7 +22,42 @@ function timeLeft() {
     return h + "h " + m + "m";
 }
 
+const ALLOWED_REFERERS = [
+    "lootlabs.gg",
+    "loot-link.com",
+    "loot-links.com",
+    "lootdest.com",
+    "lootdest.org",
+    "linkvertise.com",
+    "linkvertise.net",
+    "work.ink",
+];
+
+const LOOTLABS_URL = "https://loot-link.com/s?6pdcrrvy";
+
 module.exports = (req, res) => {
+    const ref = (req.headers.referer || req.headers.referrer || "").toLowerCase();
+    const allowed = ALLOWED_REFERERS.some(d => ref.includes(d));
+
+    if (!allowed) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(403).send(`<!DOCTYPE html>
+<html><head><title>dzakob</title><meta name="viewport" content="width=device-width, initial-scale=1"><style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { background: #0e0e12; color: #e6e6f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.card { background: #16161c; border: 1px solid #2a2a3a; border-radius: 14px; padding: 40px; max-width: 460px; width: 100%; text-align: center; }
+h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+.sub { color: #7a7a90; font-size: 13px; margin-bottom: 28px; }
+.btn { display: inline-block; background: linear-gradient(135deg, #4d7cff, #6b5cff); color: white; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+</style></head><body>
+<div class="card">
+<h1>dzakob</h1>
+<p class="sub">Complete the checkpoint to receive your key</p>
+<a class="btn" href="${LOOTLABS_URL}">GET KEY</a>
+</div>
+</body></html>`);
+    }
+
     const ip = getIP(req);
     const key = keyFor(ip);
     const expires = timeLeft();
