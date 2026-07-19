@@ -45,7 +45,7 @@ local Games = {
         }
     },
     {
-        Name = "Win Farm",
+        Name = "+1 Speed Slime Keyboard Escape",
         PlaceId = {96947338677734},
         Scripts = {
             {
@@ -65,44 +65,6 @@ local Games = {
                         end
                         task.wait(0.5)
                     end
-                end
-            }
-        }
-    },
-    {
-        Name = "Universal",
-        PlaceId = "all",
-        Scripts = {
-            {
-                Name = "Remote Spy",
-                Description = "Open SimpleSpy remote logger",
-                Type = "button",
-                Run = function()
-                    loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/78n/SimpleSpy/main/SimpleSpyBeta.lua"))()
-                end
-            },
-            {
-                Name = "Vex Explorer",
-                Description = "Open Vex Explorer GUI",
-                Type = "button",
-                Run = function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Vezise/2026/main/Vez/VexExplorer/VEXExplorer.lua"))()
-                end
-            },
-            {
-                Name = "Cobalt",
-                Description = "Open Cobalt GUI",
-                Type = "button",
-                Run = function()
-                    loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
-                end
-            },
-            {
-                Name = "Free Gamepass",
-                Description = "Unlock gamepasses for free",
-                Type = "button",
-                Run = function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/7yd7/FreeGamepass/main/Script.luau"))()
                 end
             }
         }
@@ -134,7 +96,8 @@ local function validateOnServer(key)
     end)
     if not ok then return nil, "Failed to reach key server" end
     if response:find('"valid"%s*:%s*true') then
-        return true
+        local isAdmin = response:find('"admin"%s*:%s*true') ~= nil
+        return true, nil, isAdmin
     end
     return false, "Invalid or expired key"
 end
@@ -168,8 +131,8 @@ local function saveKey(key)
 end
 
 local function validateKey(key)
-    local ok, err = validateOnServer(key)
-    if ok then return true end
+    local ok, err, isAdmin = validateOnServer(key)
+    if ok then return true, isAdmin end
     return false, err or "Invalid key"
 end
 
@@ -357,121 +320,190 @@ gui.ResetOnSpawn = false
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = game:GetService("CoreGui")
 
--- main frame
+-- backdrop (gradient)
+local backdrop = Instance.new("Frame")
+backdrop.Name = "Backdrop"
+backdrop.Size = UDim2.new(0, 500, 0, 350)
+backdrop.Position = UDim2.new(0.5, -250, 0.5, -175)
+backdrop.BackgroundColor3 = Color3.fromRGB(42, 26, 62)
+backdrop.BorderSizePixel = 0
+backdrop.ClipsDescendants = true
+backdrop.Parent = gui
+
+local backdropCorner = Instance.new("UICorner")
+backdropCorner.CornerRadius = UDim.new(0, 16)
+backdropCorner.Parent = backdrop
+
+local backdropGradient = Instance.new("UIGradient")
+backdropGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 26, 62)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 42, 78))
+}
+backdropGradient.Rotation = 135
+backdropGradient.Parent = backdrop
+
+-- glass main
 local main = Instance.new("Frame")
 main.Name = "Main"
-main.Size = UDim2.new(0, 500, 0, 350)
-main.Position = UDim2.new(0.5, -250, 0.5, -175)
-main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+main.Size = UDim2.new(1, -24, 1, -24)
+main.Position = UDim2.new(0, 12, 0, 12)
+main.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+main.BackgroundTransparency = 0.94
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
-main.Parent = gui
+main.Parent = backdrop
 
 local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = main
 
 local mainStroke = Instance.new("UIStroke")
-mainStroke.Color = Color3.fromRGB(60, 60, 80)
-mainStroke.Thickness = 1.5
+mainStroke.Color = Color3.fromRGB(255, 255, 255)
+mainStroke.Transparency = 0.88
+mainStroke.Thickness = 1
 mainStroke.Parent = main
 
--- title bar
+-- title bar (no separate bg, part of glass)
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 36)
-titleBar.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
+titleBar.Size = UDim2.new(1, 0, 0, 46)
+titleBar.BackgroundTransparency = 1
 titleBar.BorderSizePixel = 0
 titleBar.Parent = main
 
-local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 10)
-titleCorner.Parent = titleBar
+-- separator under title
+local titleSep = Instance.new("Frame")
+titleSep.Size = UDim2.new(1, -24, 0, 1)
+titleSep.Position = UDim2.new(0, 12, 0, 46)
+titleSep.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+titleSep.BackgroundTransparency = 0.92
+titleSep.BorderSizePixel = 0
+titleSep.Parent = main
 
-local titleFix = Instance.new("Frame")
-titleFix.Size = UDim2.new(1, 0, 0, 12)
-titleFix.Position = UDim2.new(0, 0, 1, -12)
-titleFix.BackgroundColor3 = Color3.fromRGB(24, 24, 30)
-titleFix.BorderSizePixel = 0
-titleFix.Parent = titleBar
+-- avatar
+local avatar = Instance.new("ImageLabel")
+avatar.Size = UDim2.new(0, 26, 0, 26)
+avatar.Position = UDim2.new(0, 14, 0, 10)
+avatar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+avatar.BorderSizePixel = 0
+avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=48&h=48"
+avatar.Parent = titleBar
+
+local avCorner = Instance.new("UICorner")
+avCorner.CornerRadius = UDim.new(1, 0)
+avCorner.Parent = avatar
 
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, -80, 1, 0)
-titleLabel.Position = UDim2.new(0, 14, 0, 0)
+titleLabel.Size = UDim2.new(1, -140, 0, 16)
+titleLabel.Position = UDim2.new(0, 48, 0, 8)
 titleLabel.BackgroundTransparency = 1
 titleLabel.Text = "dzakob"
-titleLabel.TextColor3 = Color3.fromRGB(220, 220, 240)
-titleLabel.TextSize = 15
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 14
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = titleBar
 
--- game indicator
+local userLabel = Instance.new("TextLabel")
+userLabel.Size = UDim2.new(1, -140, 0, 12)
+userLabel.Position = UDim2.new(0, 48, 0, 24)
+userLabel.BackgroundTransparency = 1
+userLabel.Text = "@" .. player.Name
+userLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+userLabel.TextTransparency = 0.5
+userLabel.TextSize = 10
+userLabel.Font = Enum.Font.Gotham
+userLabel.TextXAlignment = Enum.TextXAlignment.Left
+userLabel.Parent = titleBar
+
+-- game indicator (bottom of sidebar)
 local gameIndicator = Instance.new("TextLabel")
-gameIndicator.Size = UDim2.new(0, 200, 0, 16)
-gameIndicator.Position = UDim2.new(0, 14, 0, 36)
+gameIndicator.Size = UDim2.new(0, 130, 0, 14)
+gameIndicator.Position = UDim2.new(0, 12, 1, -22)
 gameIndicator.BackgroundTransparency = 1
 gameIndicator.Text = ""
-gameIndicator.TextColor3 = Color3.fromRGB(100, 200, 120)
-gameIndicator.TextSize = 11
+gameIndicator.TextColor3 = Color3.fromRGB(255, 255, 255)
+gameIndicator.TextTransparency = 0.4
+gameIndicator.TextSize = 9
 gameIndicator.Font = Enum.Font.Gotham
 gameIndicator.TextXAlignment = Enum.TextXAlignment.Left
+gameIndicator.TextWrapped = true
 gameIndicator.Parent = main
 
 -- close button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 36, 0, 36)
-closeBtn.Position = UDim2.new(1, -36, 0, 0)
+closeBtn.Position = UDim2.new(1, -40, 0, 5)
 closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-closeBtn.TextSize = 16
-closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextTransparency = 0.3
+closeBtn.TextSize = 14
+closeBtn.Font = Enum.Font.Gotham
 closeBtn.Parent = titleBar
 
 -- minimize button
 local minBtn = Instance.new("TextButton")
 minBtn.Size = UDim2.new(0, 36, 0, 36)
-minBtn.Position = UDim2.new(1, -72, 0, 0)
+minBtn.Position = UDim2.new(1, -72, 0, 5)
 minBtn.BackgroundTransparency = 1
-minBtn.Text = "-"
-minBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-minBtn.TextSize = 20
-minBtn.Font = Enum.Font.GothamBold
+minBtn.Text = "⎯"
+minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minBtn.TextTransparency = 0.3
+minBtn.TextSize = 14
+minBtn.Font = Enum.Font.Gotham
 minBtn.Parent = titleBar
 
--- sidebar
-local sidebar = Instance.new("ScrollingFrame")
-sidebar.Name = "Sidebar"
-sidebar.Size = UDim2.new(0, 130, 1, -56)
-sidebar.Position = UDim2.new(0, 0, 0, 56)
-sidebar.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
-sidebar.BorderSizePixel = 0
-sidebar.ScrollBarThickness = 2
-sidebar.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
-sidebar.CanvasSize = UDim2.new(0, 0, 0, 0)
-sidebar.AutomaticCanvasSize = Enum.AutomaticSize.Y
-sidebar.Parent = main
+-- tabs (horizontal pills, not sidebar anymore)
+local tabsBar = Instance.new("Frame")
+tabsBar.Name = "TabsBar"
+tabsBar.Size = UDim2.new(1, -24, 0, 32)
+tabsBar.Position = UDim2.new(0, 12, 0, 54)
+tabsBar.BackgroundTransparency = 1
+tabsBar.Parent = main
 
-local sidebarLayout = Instance.new("UIListLayout")
-sidebarLayout.Padding = UDim.new(0, 2)
-sidebarLayout.Parent = sidebar
+local tabsLayout = Instance.new("UIListLayout")
+tabsLayout.FillDirection = Enum.FillDirection.Horizontal
+tabsLayout.Padding = UDim.new(0, 6)
+tabsLayout.Parent = tabsBar
 
-local sidebarPad = Instance.new("UIPadding")
-sidebarPad.PaddingTop = UDim.new(0, 4)
-sidebarPad.PaddingLeft = UDim.new(0, 4)
-sidebarPad.PaddingRight = UDim.new(0, 4)
-sidebarPad.Parent = sidebar
+local sidebar = tabsBar -- alias for existing code
+
+-- search bar (below tabs)
+local searchBar = Instance.new("TextBox")
+searchBar.Size = UDim2.new(1, -24, 0, 32)
+searchBar.Position = UDim2.new(0, 12, 0, 94)
+searchBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+searchBar.BackgroundTransparency = 0.92
+searchBar.BorderSizePixel = 0
+searchBar.PlaceholderText = "Search scripts..."
+searchBar.PlaceholderColor3 = Color3.fromRGB(255, 255, 255)
+searchBar.Text = ""
+searchBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchBar.TextSize = 12
+searchBar.Font = Enum.Font.Gotham
+searchBar.TextXAlignment = Enum.TextXAlignment.Left
+searchBar.ClearTextOnFocus = false
+searchBar.Parent = main
+
+local sbCorner = Instance.new("UICorner")
+sbCorner.CornerRadius = UDim.new(0, 10)
+sbCorner.Parent = searchBar
+
+local sbPad = Instance.new("UIPadding")
+sbPad.PaddingLeft = UDim.new(0, 12)
+sbPad.Parent = searchBar
 
 -- content area
 local content = Instance.new("ScrollingFrame")
 content.Name = "Content"
-content.Size = UDim2.new(1, -140, 1, -56)
-content.Position = UDim2.new(0, 136, 0, 56)
+content.Size = UDim2.new(1, -24, 1, -160)
+content.Position = UDim2.new(0, 12, 0, 134)
 content.BackgroundTransparency = 1
 content.BorderSizePixel = 0
 content.ScrollBarThickness = 3
-content.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
+content.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+content.ScrollBarImageTransparency = 0.7
 content.CanvasSize = UDim2.new(0, 0, 0, 0)
 content.AutomaticCanvasSize = Enum.AutomaticSize.Y
 content.Parent = main
@@ -486,6 +518,76 @@ contentPad.PaddingLeft = UDim.new(0, 6)
 contentPad.PaddingRight = UDim.new(0, 6)
 contentPad.Parent = content
 
+-- notification container
+local notifRoot = Instance.new("Frame")
+notifRoot.Size = UDim2.new(0, 260, 1, -20)
+notifRoot.Position = UDim2.new(1, -270, 0, 10)
+notifRoot.BackgroundTransparency = 1
+notifRoot.Parent = gui
+
+local notifLayout = Instance.new("UIListLayout")
+notifLayout.Padding = UDim.new(0, 6)
+notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+notifLayout.Parent = notifRoot
+
+local function notify(text, kind)
+    local color = Color3.fromRGB(120, 90, 255)
+    if kind == "success" then color = Color3.fromRGB(60, 200, 100) end
+    if kind == "error" then color = Color3.fromRGB(240, 80, 80) end
+
+    local n = Instance.new("Frame")
+    n.Size = UDim2.new(1, 0, 0, 44)
+    n.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
+    n.BorderSizePixel = 0
+    n.Parent = notifRoot
+
+    local nc = Instance.new("UICorner")
+    nc.CornerRadius = UDim.new(0, 8)
+    nc.Parent = n
+
+    local strip = Instance.new("Frame")
+    strip.Size = UDim2.new(0, 3, 1, -12)
+    strip.Position = UDim2.new(0, 8, 0, 6)
+    strip.BackgroundColor3 = color
+    strip.BorderSizePixel = 0
+    strip.Parent = n
+
+    local sc = Instance.new("UICorner")
+    sc.CornerRadius = UDim.new(0, 2)
+    sc.Parent = strip
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -24, 1, 0)
+    lbl.Position = UDim2.new(0, 20, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(230, 230, 250)
+    lbl.TextSize = 12
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextWrapped = true
+    lbl.Parent = n
+
+    n.Position = UDim2.new(1, 30, 0, 0)
+    TweenService:Create(n, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+
+    task.spawn(function()
+        task.wait(3)
+        TweenService:Create(n, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+        for _, c in n:GetDescendants() do
+            if c:IsA("TextLabel") then
+                TweenService:Create(c, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+            elseif c:IsA("Frame") then
+                TweenService:Create(c, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+            end
+        end
+        task.wait(0.4)
+        n:Destroy()
+    end)
+end
+
+_G.dzakob_notify = notify
+
 -- =====================
 -- DRAGGING
 -- =====================
@@ -494,7 +596,7 @@ titleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
         dragStart = input.Position
-        startPos = main.Position
+        startPos = backdrop.Position
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
@@ -504,7 +606,7 @@ end)
 game:GetService("UserInputService").InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
-        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        backdrop.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
 
@@ -512,16 +614,14 @@ end)
 -- MINIMIZE / CLOSE
 -- =====================
 local minimized = false
-local fullSize = main.Size
+local fullSize = backdrop.Size
 
 minBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        TweenService:Create(main, TweenInfo.new(0.2), {Size = UDim2.new(0, 500, 0, 36)}):Play()
-        minBtn.Text = "+"
+        TweenService:Create(backdrop, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 500, 0, 58)}):Play()
     else
-        TweenService:Create(main, TweenInfo.new(0.2), {Size = fullSize}):Play()
-        minBtn.Text = "-"
+        TweenService:Create(backdrop, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {Size = fullSize}):Play()
     end
 end)
 
@@ -547,105 +647,148 @@ end
 
 local function createScriptCard(scriptData)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 60)
-    card.BackgroundColor3 = Color3.fromRGB(28, 28, 36)
+    card.Size = UDim2.new(1, 0, 0, 58)
+    card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    card.BackgroundTransparency = 0.95
     card.BorderSizePixel = 0
     card.Parent = content
 
     local cardCorner = Instance.new("UICorner")
-    cardCorner.CornerRadius = UDim.new(0, 8)
+    cardCorner.CornerRadius = UDim.new(0, 12)
     cardCorner.Parent = card
 
     local name = Instance.new("TextLabel")
-    name.Size = UDim2.new(1, -90, 0, 22)
-    name.Position = UDim2.new(0, 12, 0, 8)
+    name.Size = UDim2.new(1, -100, 0, 20)
+    name.Position = UDim2.new(0, 14, 0, 10)
     name.BackgroundTransparency = 1
     name.Text = scriptData.Name
-    name.TextColor3 = Color3.fromRGB(230, 230, 250)
-    name.TextSize = 14
-    name.Font = Enum.Font.GothamBold
+    name.TextColor3 = Color3.fromRGB(255, 255, 255)
+    name.TextSize = 13
+    name.Font = Enum.Font.GothamMedium
     name.TextXAlignment = Enum.TextXAlignment.Left
     name.Parent = card
 
     local desc = Instance.new("TextLabel")
-    desc.Size = UDim2.new(1, -90, 0, 16)
-    desc.Position = UDim2.new(0, 12, 0, 32)
+    desc.Size = UDim2.new(1, -100, 0, 14)
+    desc.Position = UDim2.new(0, 14, 0, 30)
     desc.BackgroundTransparency = 1
     desc.Text = scriptData.Description
-    desc.TextColor3 = Color3.fromRGB(120, 120, 150)
-    desc.TextSize = 11
+    desc.TextColor3 = Color3.fromRGB(255, 255, 255)
+    desc.TextTransparency = 0.55
+    desc.TextSize = 10
     desc.Font = Enum.Font.Gotham
     desc.TextXAlignment = Enum.TextXAlignment.Left
     desc.Parent = card
 
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 70, 0, 30)
-    btn.Position = UDim2.new(1, -80, 0.5, -15)
-    btn.BorderSizePixel = 0
-    btn.TextSize = 12
-    btn.Font = Enum.Font.GothamBold
-    btn.Parent = card
-
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
-    btnCorner.Parent = btn
-
     if scriptData.Type == "toggle" then
         _G.hub_toggles[scriptData.Name] = _G.hub_toggles[scriptData.Name] or false
 
+        -- pill toggle
+        local track = Instance.new("TextButton")
+        track.Size = UDim2.new(0, 40, 0, 22)
+        track.Position = UDim2.new(1, -54, 0.5, -11)
+        track.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        track.BackgroundTransparency = 0.75
+        track.BorderSizePixel = 0
+        track.Text = ""
+        track.AutoButtonColor = false
+        track.Parent = card
+
+        local trackCorner = Instance.new("UICorner")
+        trackCorner.CornerRadius = UDim.new(1, 0)
+        trackCorner.Parent = track
+
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.new(0, 18, 0, 18)
+        knob.Position = UDim2.new(0, 2, 0.5, -9)
+        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        knob.BorderSizePixel = 0
+        knob.Parent = track
+
+        local knobCorner = Instance.new("UICorner")
+        knobCorner.CornerRadius = UDim.new(1, 0)
+        knobCorner.Parent = knob
+
         local function updateToggle()
             if _G.hub_toggles[scriptData.Name] then
-                btn.Text = "ON"
-                btn.BackgroundColor3 = Color3.fromRGB(40, 180, 70)
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                TweenService:Create(track, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(77, 216, 132), BackgroundTransparency = 0}):Play()
+                TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(0, 20, 0.5, -9)}):Play()
             else
-                btn.Text = "OFF"
-                btn.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
-                btn.TextColor3 = Color3.fromRGB(180, 180, 200)
+                TweenService:Create(track, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.75}):Play()
+                TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -9)}):Play()
             end
         end
 
         updateToggle()
 
-        btn.MouseButton1Click:Connect(function()
+        track.MouseButton1Click:Connect(function()
             _G.hub_toggles[scriptData.Name] = not _G.hub_toggles[scriptData.Name]
             updateToggle()
             if _G.hub_toggles[scriptData.Name] then
+                _G.dzakob_notify(scriptData.Name .. " started", "success")
                 task.spawn(function()
                     local ok, err = pcall(scriptData.Run)
-                    if not ok then warn("Script error:", err) end
+                    if not ok then
+                        _G.dzakob_notify("Error: " .. tostring(err):sub(1,60), "error")
+                    end
                     _G.hub_toggles[scriptData.Name] = false
                     updateToggle()
                 end)
+            else
+                _G.dzakob_notify(scriptData.Name .. " stopped")
             end
         end)
     else
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 62, 0, 28)
+        btn.Position = UDim2.new(1, -76, 0.5, -14)
+        btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BorderSizePixel = 0
         btn.Text = "RUN"
-        btn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextColor3 = Color3.fromRGB(30, 30, 50)
+        btn.TextSize = 11
+        btn.Font = Enum.Font.GothamBold
+        btn.Parent = card
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = btn
 
         btn.MouseButton1Click:Connect(function()
             btn.Text = "..."
             task.spawn(function()
                 local ok, err = pcall(scriptData.Run)
-                if not ok then warn("Script error:", err) end
+                if not ok then
+                    _G.dzakob_notify("Error: " .. tostring(err):sub(1,60), "error")
+                else
+                    _G.dzakob_notify(scriptData.Name .. " ran", "success")
+                end
                 btn.Text = "RUN"
             end)
         end)
     end
+    card.Name = scriptData.Name
 end
+
+searchBar:GetPropertyChangedSignal("Text"):Connect(function()
+    local q = searchBar.Text:lower()
+    for _, c in content:GetChildren() do
+        if c:IsA("Frame") then
+            c.Visible = q == "" or (c.Name:lower():find(q, 1, true) ~= nil)
+        end
+    end
+end)
 
 local function loadTab(gameData)
     clearContent()
     activeTab = gameData.Name
+    searchBar.Text = ""
 
     for _, tabBtn in tabButtons do
         if tabBtn.Name == gameData.Name then
-            tabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-            tabBtn.TextColor3 = Color3.fromRGB(220, 220, 255)
+            TweenService:Create(tabBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(30, 30, 60), TextTransparency = 0}):Play()
         else
-            tabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
-            tabBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
+            TweenService:Create(tabBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.85, TextColor3 = Color3.fromRGB(255, 255, 255), TextTransparency = 0.4}):Play()
         end
     end
 
@@ -673,20 +816,24 @@ for _, gameData in Games do
     end
 
     if isMatch or gameData.PlaceId == "all" then
+        local nameLen = #gameData.Name
+        local w = math.max(80, math.min(180, nameLen * 8 + 24))
         local tabBtn = Instance.new("TextButton")
         tabBtn.Name = gameData.Name
-        tabBtn.Size = UDim2.new(1, 0, 0, 32)
-        tabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 38)
+        tabBtn.Size = UDim2.new(0, w, 1, 0)
+        tabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        tabBtn.BackgroundTransparency = 0.85
         tabBtn.BorderSizePixel = 0
         tabBtn.Text = gameData.Name
-        tabBtn.TextColor3 = Color3.fromRGB(140, 140, 160)
-        tabBtn.TextSize = 12
-        tabBtn.Font = Enum.Font.GothamBold
+        tabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tabBtn.TextTransparency = 0.4
+        tabBtn.TextSize = 11
+        tabBtn.Font = Enum.Font.GothamMedium
         tabBtn.TextTruncate = Enum.TextTruncate.AtEnd
         tabBtn.Parent = sidebar
 
         local tabCorner = Instance.new("UICorner")
-        tabCorner.CornerRadius = UDim.new(0, 6)
+        tabCorner.CornerRadius = UDim.new(1, 0)
         tabCorner.Parent = tabBtn
 
         table.insert(tabButtons, tabBtn)
