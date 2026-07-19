@@ -3,10 +3,16 @@ const crypto = require('crypto');
 const SECRET = process.env.KEY_SECRET || "dzakob-change-me-2026";
 const HUB_NAME = "dzakob";
 
-function todaysKey() {
+function getIP(req) {
+    const fwd = req.headers['x-forwarded-for'];
+    if (fwd) return fwd.split(',')[0].trim();
+    return req.headers['x-real-ip'] || req.socket?.remoteAddress || "0.0.0.0";
+}
+
+function keyFor(ip) {
     const day = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
-    const hash = crypto.createHash('sha256').update(day + SECRET).digest('hex');
-    return HUB_NAME + "-" + hash.slice(0, 16);
+    const hash = crypto.createHash('sha256').update(day + ip + SECRET).digest('hex');
+    return HUB_NAME + "-" + hash.slice(0, 20);
 }
 
 function timeLeft() {
@@ -17,7 +23,8 @@ function timeLeft() {
 }
 
 module.exports = (req, res) => {
-    const key = todaysKey();
+    const ip = getIP(req);
+    const key = keyFor(ip);
     const expires = timeLeft();
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
