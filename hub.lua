@@ -594,18 +594,26 @@ _G.dzakob_settings = _G.dzakob_settings or {
 }
 
 local settingsPanel = Instance.new("Frame")
-settingsPanel.Size = UDim2.new(1, -24, 1, -60)
-settingsPanel.Position = UDim2.new(0, 12, 0, 48)
-settingsPanel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-settingsPanel.BackgroundTransparency = 0.94
+settingsPanel.Size = UDim2.new(1, 0, 1, -46)
+settingsPanel.Position = UDim2.new(0, 0, 0, 46)
+settingsPanel.BackgroundColor3 = Color3.fromRGB(24, 16, 40)
+settingsPanel.BackgroundTransparency = 0
 settingsPanel.BorderSizePixel = 0
 settingsPanel.Visible = false
-settingsPanel.ZIndex = 5
+settingsPanel.ZIndex = 50
 settingsPanel.Parent = main
 
 local spCorner = Instance.new("UICorner")
-spCorner.CornerRadius = UDim.new(0, 12)
+spCorner.CornerRadius = UDim.new(0, 0)
 spCorner.Parent = settingsPanel
+
+local spBg = Instance.new("UIGradient")
+spBg.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 26, 62)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(26, 42, 78))
+}
+spBg.Rotation = 135
+spBg.Parent = settingsPanel
 
 local spStroke = Instance.new("UIStroke")
 spStroke.Color = Color3.fromRGB(255, 255, 255)
@@ -787,14 +795,14 @@ for _, opt in {{v="tr",l="Top Right"},{v="tl",l="Top Left"},{v="br",l="Bottom Ri
 end
 notifDropBtn.MouseButton1Click:Connect(function() notifMenu.Visible = not notifMenu.Visible end)
 
--- row 3: toggle keybind
-local rowKey = makeRow(180, "Menu Toggle Key", "Key to open/close the hub")
+-- row 3: toggle keybind (press to rebind)
+local rowKey = makeRow(180, "Menu Toggle Key", "Click, then press any key to bind")
 local keyBtn = Instance.new("TextButton")
 keyBtn.Size = UDim2.new(0, 120, 0, 28)
 keyBtn.Position = UDim2.new(1, -134, 0.5, -14)
 keyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 keyBtn.BorderSizePixel = 0
-keyBtn.Text = "LeftAlt  ▼"
+keyBtn.Text = "LeftAlt"
 keyBtn.TextColor3 = Color3.fromRGB(30, 30, 50)
 keyBtn.TextSize = 11
 keyBtn.Font = Enum.Font.GothamBold
@@ -804,58 +812,33 @@ local kbc = Instance.new("UICorner")
 kbc.CornerRadius = UDim.new(0, 8)
 kbc.Parent = keyBtn
 
-local keyMenu = Instance.new("ScrollingFrame")
-keyMenu.Size = UDim2.new(0, 120, 0, 160)
-keyMenu.Position = UDim2.new(1, -134, 0.5, 18)
-keyMenu.BackgroundColor3 = Color3.fromRGB(30, 20, 55)
-keyMenu.BorderSizePixel = 0
-keyMenu.ScrollBarThickness = 3
-keyMenu.CanvasSize = UDim2.new(0, 0, 0, 0)
-keyMenu.AutomaticCanvasSize = Enum.AutomaticSize.Y
-keyMenu.Visible = false
-keyMenu.ZIndex = 20
-keyMenu.Parent = rowKey
-local kmc = Instance.new("UICorner")
-kmc.CornerRadius = UDim.new(0, 8)
-kmc.Parent = keyMenu
-local kmLayout = Instance.new("UIListLayout")
-kmLayout.Padding = UDim.new(0, 2)
-kmLayout.Parent = keyMenu
-local kmPad = Instance.new("UIPadding")
-kmPad.PaddingTop = UDim.new(0, 4)
-kmPad.PaddingLeft = UDim.new(0, 4)
-kmPad.PaddingRight = UDim.new(0, 4)
-kmPad.Parent = keyMenu
+local currentKey = Enum.KeyCode.LeftAlt
+local listeningForKey = false
 
-local keyChoices = {"LeftAlt","RightAlt","LeftShift","RightShift","LeftControl","RightControl","Insert","End","Home","F1","F2","F3","F4","BackSlash","RightBracket"}
-local currentKey = "LeftAlt"
+keyBtn.MouseButton1Click:Connect(function()
+    listeningForKey = true
+    keyBtn.Text = "Press key..."
+    keyBtn.TextColor3 = Color3.fromRGB(120, 90, 220)
+end)
 
-for _, k in keyChoices do
-    local it = Instance.new("TextButton")
-    it.Size = UDim2.new(1, -8, 0, 26)
-    it.BackgroundTransparency = 1
-    it.BorderSizePixel = 0
-    it.Text = k
-    it.TextColor3 = Color3.fromRGB(255, 255, 255)
-    it.TextSize = 11
-    it.Font = Enum.Font.Gotham
-    it.ZIndex = 21
-    it.Parent = keyMenu
-    local itc = Instance.new("UICorner")
-    itc.CornerRadius = UDim.new(0, 6)
-    itc.Parent = it
-    it.MouseButton1Click:Connect(function()
-        currentKey = k
-        keyBtn.Text = k .. "  ▼"
-        keyMenu.Visible = false
-    end)
-end
-keyBtn.MouseButton1Click:Connect(function() keyMenu.Visible = not keyMenu.Visible end)
-
--- toggle handler using dynamic key
+-- toggle + rebind handler
 game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    if listeningForKey then
+        if input.KeyCode == Enum.KeyCode.Escape then
+            listeningForKey = false
+            keyBtn.Text = currentKey.Name
+            keyBtn.TextColor3 = Color3.fromRGB(30, 30, 50)
+            return
+        end
+        currentKey = input.KeyCode
+        listeningForKey = false
+        keyBtn.Text = input.KeyCode.Name
+        keyBtn.TextColor3 = Color3.fromRGB(30, 30, 50)
+        return
+    end
     if processed then return end
-    if input.KeyCode == Enum.KeyCode[currentKey] then
+    if input.KeyCode == currentKey then
         backdrop.Visible = not backdrop.Visible
     end
 end)
