@@ -68,42 +68,6 @@ local Games = {
                 end
             }
         }
-    },
-    {
-        Name = "Settings",
-        PlaceId = "all",
-        Scripts = {
-            {
-                Name = "Disable 3D Rendering",
-                Description = "Fully stop rendering the world for max FPS",
-                Type = "toggle",
-                Run = function()
-                    local RunService = game:GetService("RunService")
-                    local ok = pcall(function() RunService:Set3dRenderingEnabled(false) end)
-                    if not ok then
-                        settings().Rendering.QualityLevel = 1
-                        pcall(function() setfpscap(240) end)
-                    end
-                    while _G.hub_toggles["Disable 3D Rendering"] do task.wait(1) end
-                    pcall(function() RunService:Set3dRenderingEnabled(true) end)
-                end
-            },
-            {
-                Name = "Notification Corner",
-                Description = "Pick which corner notifications appear in",
-                Type = "dropdown",
-                Options = {
-                    {value = "tr", label = "Top Right"},
-                    {value = "tl", label = "Top Left"},
-                    {value = "br", label = "Bottom Right"},
-                    {value = "bl", label = "Bottom Left"},
-                },
-                Default = "tr",
-                OnSelect = function(value)
-                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner(value) end
-                end
-            }
-        }
     }
 }
 
@@ -452,32 +416,22 @@ userLabel.Font = Enum.Font.Gotham
 userLabel.TextXAlignment = Enum.TextXAlignment.Left
 userLabel.Parent = titleBar
 
--- game indicator (bottom of sidebar)
-local gameIndicator = Instance.new("TextLabel")
-gameIndicator.Size = UDim2.new(0, 130, 0, 14)
-gameIndicator.Position = UDim2.new(0, 12, 1, -22)
-gameIndicator.BackgroundTransparency = 1
-gameIndicator.Text = ""
-gameIndicator.TextColor3 = Color3.fromRGB(255, 255, 255)
-gameIndicator.TextTransparency = 0.4
-gameIndicator.TextSize = 9
-gameIndicator.Font = Enum.Font.Gotham
-gameIndicator.TextXAlignment = Enum.TextXAlignment.Left
-gameIndicator.TextWrapped = true
-gameIndicator.Parent = main
+-- settings gear button (top right)
+local settingsBtn = Instance.new("TextButton")
+settingsBtn.Size = UDim2.new(0, 32, 0, 32)
+settingsBtn.Position = UDim2.new(1, -42, 0, 7)
+settingsBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+settingsBtn.BackgroundTransparency = 0.88
+settingsBtn.BorderSizePixel = 0
+settingsBtn.Text = "⚙"
+settingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+settingsBtn.TextSize = 18
+settingsBtn.Font = Enum.Font.GothamBold
+settingsBtn.Parent = titleBar
 
--- hint label
-local hintLabel = Instance.new("TextLabel")
-hintLabel.Size = UDim2.new(0, 130, 0, 14)
-hintLabel.Position = UDim2.new(1, -142, 0, 18)
-hintLabel.BackgroundTransparency = 1
-hintLabel.Text = "LeftAlt to toggle"
-hintLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-hintLabel.TextTransparency = 0.55
-hintLabel.TextSize = 10
-hintLabel.Font = Enum.Font.Gotham
-hintLabel.TextXAlignment = Enum.TextXAlignment.Right
-hintLabel.Parent = titleBar
+local settingsBtnCorner = Instance.new("UICorner")
+settingsBtnCorner.CornerRadius = UDim.new(1, 0)
+settingsBtnCorner.Parent = settingsBtn
 
 -- tabs (horizontal pills, not sidebar anymore)
 local tabsBar = Instance.new("Frame")
@@ -631,11 +585,277 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
 end)
 
 -- =====================
--- LEFT ALT TOGGLE
+-- SETTINGS PANEL
 -- =====================
+_G.dzakob_settings = _G.dzakob_settings or {
+    toggleKey = "LeftAlt",
+    render3d = true,
+    notifCorner = "tr",
+}
+
+local settingsPanel = Instance.new("Frame")
+settingsPanel.Size = UDim2.new(1, -24, 1, -60)
+settingsPanel.Position = UDim2.new(0, 12, 0, 48)
+settingsPanel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+settingsPanel.BackgroundTransparency = 0.94
+settingsPanel.BorderSizePixel = 0
+settingsPanel.Visible = false
+settingsPanel.ZIndex = 5
+settingsPanel.Parent = main
+
+local spCorner = Instance.new("UICorner")
+spCorner.CornerRadius = UDim.new(0, 12)
+spCorner.Parent = settingsPanel
+
+local spStroke = Instance.new("UIStroke")
+spStroke.Color = Color3.fromRGB(255, 255, 255)
+spStroke.Transparency = 0.85
+spStroke.Thickness = 1
+spStroke.Parent = settingsPanel
+
+local spTitle = Instance.new("TextLabel")
+spTitle.Size = UDim2.new(1, -24, 0, 24)
+spTitle.Position = UDim2.new(0, 16, 0, 12)
+spTitle.BackgroundTransparency = 1
+spTitle.Text = "Settings"
+spTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+spTitle.TextSize = 14
+spTitle.Font = Enum.Font.GothamBold
+spTitle.TextXAlignment = Enum.TextXAlignment.Left
+spTitle.ZIndex = 6
+spTitle.Parent = settingsPanel
+
+local spClose = Instance.new("TextButton")
+spClose.Size = UDim2.new(0, 24, 0, 24)
+spClose.Position = UDim2.new(1, -34, 0, 12)
+spClose.BackgroundTransparency = 1
+spClose.Text = "✕"
+spClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+spClose.TextTransparency = 0.3
+spClose.TextSize = 14
+spClose.Font = Enum.Font.Gotham
+spClose.ZIndex = 6
+spClose.Parent = settingsPanel
+
+spClose.MouseButton1Click:Connect(function() settingsPanel.Visible = false end)
+settingsBtn.MouseButton1Click:Connect(function() settingsPanel.Visible = not settingsPanel.Visible end)
+
+-- setting rows
+local function makeRow(y, name, desc)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -32, 0, 58)
+    row.Position = UDim2.new(0, 16, 0, y)
+    row.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    row.BackgroundTransparency = 0.95
+    row.BorderSizePixel = 0
+    row.ZIndex = 6
+    row.Parent = settingsPanel
+
+    local rc = Instance.new("UICorner")
+    rc.CornerRadius = UDim.new(0, 10)
+    rc.Parent = row
+
+    local n = Instance.new("TextLabel")
+    n.Size = UDim2.new(1, -140, 0, 18)
+    n.Position = UDim2.new(0, 14, 0, 10)
+    n.BackgroundTransparency = 1
+    n.Text = name
+    n.TextColor3 = Color3.fromRGB(255, 255, 255)
+    n.TextSize = 13
+    n.Font = Enum.Font.GothamMedium
+    n.TextXAlignment = Enum.TextXAlignment.Left
+    n.ZIndex = 7
+    n.Parent = row
+
+    local d = Instance.new("TextLabel")
+    d.Size = UDim2.new(1, -140, 0, 14)
+    d.Position = UDim2.new(0, 14, 0, 30)
+    d.BackgroundTransparency = 1
+    d.Text = desc
+    d.TextColor3 = Color3.fromRGB(255, 255, 255)
+    d.TextTransparency = 0.55
+    d.TextSize = 10
+    d.Font = Enum.Font.Gotham
+    d.TextXAlignment = Enum.TextXAlignment.Left
+    d.ZIndex = 7
+    d.Parent = row
+
+    return row
+end
+
+-- row 1: 3D rendering toggle
+local row3d = makeRow(48, "Disable 3D Rendering", "Fully stop rendering the world for max FPS")
+local track3d = Instance.new("TextButton")
+track3d.Size = UDim2.new(0, 40, 0, 22)
+track3d.Position = UDim2.new(1, -54, 0.5, -11)
+track3d.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+track3d.BackgroundTransparency = 0.75
+track3d.BorderSizePixel = 0
+track3d.Text = ""
+track3d.AutoButtonColor = false
+track3d.ZIndex = 7
+track3d.Parent = row3d
+local tc3d = Instance.new("UICorner")
+tc3d.CornerRadius = UDim.new(1, 0)
+tc3d.Parent = track3d
+local knob3d = Instance.new("Frame")
+knob3d.Size = UDim2.new(0, 18, 0, 18)
+knob3d.Position = UDim2.new(0, 2, 0.5, -9)
+knob3d.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+knob3d.BorderSizePixel = 0
+knob3d.ZIndex = 8
+knob3d.Parent = track3d
+local kc3d = Instance.new("UICorner")
+kc3d.CornerRadius = UDim.new(1, 0)
+kc3d.Parent = knob3d
+
+local render3dOff = false
+track3d.MouseButton1Click:Connect(function()
+    render3dOff = not render3dOff
+    local RunService = game:GetService("RunService")
+    if render3dOff then
+        TweenService:Create(track3d, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(77, 216, 132), BackgroundTransparency = 0}):Play()
+        TweenService:Create(knob3d, TweenInfo.new(0.2), {Position = UDim2.new(0, 20, 0.5, -9)}):Play()
+        local ok = pcall(function() RunService:Set3dRenderingEnabled(false) end)
+        if not ok then
+            settings().Rendering.QualityLevel = 1
+            pcall(function() setfpscap(240) end)
+        end
+    else
+        TweenService:Create(track3d, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.75}):Play()
+        TweenService:Create(knob3d, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -9)}):Play()
+        pcall(function() RunService:Set3dRenderingEnabled(true) end)
+    end
+end)
+
+-- row 2: notification corner dropdown
+local rowNotif = makeRow(114, "Notification Corner", "Where notifications appear on screen")
+local notifDropBtn = Instance.new("TextButton")
+notifDropBtn.Size = UDim2.new(0, 120, 0, 28)
+notifDropBtn.Position = UDim2.new(1, -134, 0.5, -14)
+notifDropBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+notifDropBtn.BorderSizePixel = 0
+notifDropBtn.Text = "Top Right  ▼"
+notifDropBtn.TextColor3 = Color3.fromRGB(30, 30, 50)
+notifDropBtn.TextSize = 11
+notifDropBtn.Font = Enum.Font.GothamBold
+notifDropBtn.ZIndex = 7
+notifDropBtn.Parent = rowNotif
+local ndc = Instance.new("UICorner")
+ndc.CornerRadius = UDim.new(0, 8)
+ndc.Parent = notifDropBtn
+
+local notifMenu = Instance.new("Frame")
+notifMenu.Size = UDim2.new(0, 120, 0, 128)
+notifMenu.Position = UDim2.new(1, -134, 0.5, 18)
+notifMenu.BackgroundColor3 = Color3.fromRGB(30, 20, 55)
+notifMenu.BorderSizePixel = 0
+notifMenu.Visible = false
+notifMenu.ZIndex = 20
+notifMenu.Parent = rowNotif
+local nmc = Instance.new("UICorner")
+nmc.CornerRadius = UDim.new(0, 8)
+nmc.Parent = notifMenu
+local nmLayout = Instance.new("UIListLayout")
+nmLayout.Padding = UDim.new(0, 2)
+nmLayout.Parent = notifMenu
+local nmPad = Instance.new("UIPadding")
+nmPad.PaddingTop = UDim.new(0, 4)
+nmPad.PaddingLeft = UDim.new(0, 4)
+nmPad.PaddingRight = UDim.new(0, 4)
+nmPad.Parent = notifMenu
+
+for _, opt in {{v="tr",l="Top Right"},{v="tl",l="Top Left"},{v="br",l="Bottom Right"},{v="bl",l="Bottom Left"}} do
+    local it = Instance.new("TextButton")
+    it.Size = UDim2.new(1, -8, 0, 26)
+    it.BackgroundTransparency = 1
+    it.BorderSizePixel = 0
+    it.Text = opt.l
+    it.TextColor3 = Color3.fromRGB(255, 255, 255)
+    it.TextSize = 11
+    it.Font = Enum.Font.Gotham
+    it.ZIndex = 21
+    it.Parent = notifMenu
+    local itc = Instance.new("UICorner")
+    itc.CornerRadius = UDim.new(0, 6)
+    itc.Parent = it
+    it.MouseButton1Click:Connect(function()
+        notifDropBtn.Text = opt.l .. "  ▼"
+        notifMenu.Visible = false
+        if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner(opt.v) end
+    end)
+end
+notifDropBtn.MouseButton1Click:Connect(function() notifMenu.Visible = not notifMenu.Visible end)
+
+-- row 3: toggle keybind
+local rowKey = makeRow(180, "Menu Toggle Key", "Key to open/close the hub")
+local keyBtn = Instance.new("TextButton")
+keyBtn.Size = UDim2.new(0, 120, 0, 28)
+keyBtn.Position = UDim2.new(1, -134, 0.5, -14)
+keyBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+keyBtn.BorderSizePixel = 0
+keyBtn.Text = "LeftAlt  ▼"
+keyBtn.TextColor3 = Color3.fromRGB(30, 30, 50)
+keyBtn.TextSize = 11
+keyBtn.Font = Enum.Font.GothamBold
+keyBtn.ZIndex = 7
+keyBtn.Parent = rowKey
+local kbc = Instance.new("UICorner")
+kbc.CornerRadius = UDim.new(0, 8)
+kbc.Parent = keyBtn
+
+local keyMenu = Instance.new("ScrollingFrame")
+keyMenu.Size = UDim2.new(0, 120, 0, 160)
+keyMenu.Position = UDim2.new(1, -134, 0.5, 18)
+keyMenu.BackgroundColor3 = Color3.fromRGB(30, 20, 55)
+keyMenu.BorderSizePixel = 0
+keyMenu.ScrollBarThickness = 3
+keyMenu.CanvasSize = UDim2.new(0, 0, 0, 0)
+keyMenu.AutomaticCanvasSize = Enum.AutomaticSize.Y
+keyMenu.Visible = false
+keyMenu.ZIndex = 20
+keyMenu.Parent = rowKey
+local kmc = Instance.new("UICorner")
+kmc.CornerRadius = UDim.new(0, 8)
+kmc.Parent = keyMenu
+local kmLayout = Instance.new("UIListLayout")
+kmLayout.Padding = UDim.new(0, 2)
+kmLayout.Parent = keyMenu
+local kmPad = Instance.new("UIPadding")
+kmPad.PaddingTop = UDim.new(0, 4)
+kmPad.PaddingLeft = UDim.new(0, 4)
+kmPad.PaddingRight = UDim.new(0, 4)
+kmPad.Parent = keyMenu
+
+local keyChoices = {"LeftAlt","RightAlt","LeftShift","RightShift","LeftControl","RightControl","Insert","End","Home","F1","F2","F3","F4","BackSlash","RightBracket"}
+local currentKey = "LeftAlt"
+
+for _, k in keyChoices do
+    local it = Instance.new("TextButton")
+    it.Size = UDim2.new(1, -8, 0, 26)
+    it.BackgroundTransparency = 1
+    it.BorderSizePixel = 0
+    it.Text = k
+    it.TextColor3 = Color3.fromRGB(255, 255, 255)
+    it.TextSize = 11
+    it.Font = Enum.Font.Gotham
+    it.ZIndex = 21
+    it.Parent = keyMenu
+    local itc = Instance.new("UICorner")
+    itc.CornerRadius = UDim.new(0, 6)
+    itc.Parent = it
+    it.MouseButton1Click:Connect(function()
+        currentKey = k
+        keyBtn.Text = k .. "  ▼"
+        keyMenu.Visible = false
+    end)
+end
+keyBtn.MouseButton1Click:Connect(function() keyMenu.Visible = not keyMenu.Visible end)
+
+-- toggle handler using dynamic key
 game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
     if processed then return end
-    if input.KeyCode == Enum.KeyCode.LeftAlt then
+    if input.KeyCode == Enum.KeyCode[currentKey] then
         backdrop.Visible = not backdrop.Visible
     end
 end)
@@ -939,22 +1159,13 @@ for _, gameData in Games do
         end)
 
         if detectedGame == gameData.Name then
-            gameIndicator.Text = "Detected: " .. gameData.Name
             task.defer(function() loadTab(gameData) end)
         end
     end
 end
 
-if not detectedGame then
-    gameIndicator.Text = "Game not recognized (PlaceId: " .. currentPlaceId .. ")"
-    gameIndicator.TextColor3 = Color3.fromRGB(200, 200, 100)
-    -- load first all-games tab (Settings) by default
-    for _, gameData in Games do
-        if gameData.PlaceId == "all" then
-            task.defer(function() loadTab(gameData) end)
-            break
-        end
-    end
+if not detectedGame and #tabButtons > 0 then
+    task.defer(function() loadTab(Games[1]) end)
 end
 
 print("dzakob loaded | PlaceId: " .. currentPlaceId)
