@@ -75,47 +75,26 @@ local Games = {
         Scripts = {
             {
                 Name = "Disable 3D Rendering",
-                Description = "Reduce graphics quality for FPS boost",
+                Description = "Fully stop rendering the world for max FPS",
                 Type = "toggle",
                 Run = function()
-                    local savedQL = settings().Rendering.QualityLevel
-                    settings().Rendering.QualityLevel = 1
-                    pcall(function() setfpscap(240) end)
+                    local RunService = game:GetService("RunService")
+                    local ok = pcall(function() RunService:Set3dRenderingEnabled(false) end)
+                    if not ok then
+                        settings().Rendering.QualityLevel = 1
+                        pcall(function() setfpscap(240) end)
+                    end
                     while _G.hub_toggles["Disable 3D Rendering"] do task.wait(1) end
-                    settings().Rendering.QualityLevel = savedQL
+                    pcall(function() RunService:Set3dRenderingEnabled(true) end)
                 end
             },
             {
-                Name = "Notifications: Top Right",
-                Description = "Show notifications in top right corner",
-                Type = "button",
-                Run = function()
-                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("tr") end
-                end
-            },
-            {
-                Name = "Notifications: Top Left",
-                Description = "Show notifications in top left corner",
-                Type = "button",
-                Run = function()
-                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("tl") end
-                end
-            },
-            {
-                Name = "Notifications: Bottom Right",
-                Description = "Show notifications in bottom right corner",
-                Type = "button",
-                Run = function()
-                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("br") end
-                end
-            },
-            {
-                Name = "Notifications: Bottom Left",
-                Description = "Show notifications in bottom left corner",
-                Type = "button",
-                Run = function()
-                    if _G.dzakob_setNotifCorner then _G.dzakob_setNotifCorner("bl") end
-                end
+                Name = "Notification Corner",
+                Description = "Click to cycle: TR → TL → BR → BL",
+                Type = "cycle",
+                Cycle = {"tr", "tl", "br", "bl"},
+                Labels = {tr = "Top Right", tl = "Top Left", br = "Bottom Right", bl = "Bottom Left"},
+                Run = function() end
             }
         }
     }
@@ -645,7 +624,6 @@ _G.dzakob_setNotifCorner = function(corner)
         notifRoot.AnchorPoint = Vector2.new(0, 1)
         notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
     end
-    notify("Notification position updated", "success")
 end
 
 -- =====================
@@ -784,6 +762,33 @@ local function createScriptCard(scriptData)
                 end)
             else
                 _G.dzakob_notify(scriptData.Name .. " stopped")
+            end
+        end)
+    elseif scriptData.Type == "cycle" then
+        _G.hub_cycle = _G.hub_cycle or {}
+        _G.hub_cycle[scriptData.Name] = _G.hub_cycle[scriptData.Name] or 1
+
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 100, 0, 28)
+        btn.Position = UDim2.new(1, -114, 0.5, -14)
+        btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        btn.BorderSizePixel = 0
+        btn.TextColor3 = Color3.fromRGB(30, 30, 50)
+        btn.TextSize = 11
+        btn.Font = Enum.Font.GothamBold
+        btn.Text = scriptData.Labels[scriptData.Cycle[_G.hub_cycle[scriptData.Name]]]
+        btn.Parent = card
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            _G.hub_cycle[scriptData.Name] = (_G.hub_cycle[scriptData.Name] % #scriptData.Cycle) + 1
+            local val = scriptData.Cycle[_G.hub_cycle[scriptData.Name]]
+            btn.Text = scriptData.Labels[val]
+            if scriptData.Name == "Notification Corner" and _G.dzakob_setNotifCorner then
+                _G.dzakob_setNotifCorner(val)
             end
         end)
     else
