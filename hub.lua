@@ -88,11 +88,165 @@ local Games = {
         PlaceId = {109858856742178},
         Scripts = {
             {
-                Name = "Fire Rate + Auto Ammo",
-                Description = "Fast fire rate + auto reload + auto buy ammo + no recoil GUI",
-                Type = "button",
+                Name = "Fast Fire Rate",
+                Description = "Fast fire rate for all weapons",
+                Type = "toggle",
                 Run = function()
-                    local BARRICADED_GUI_SRC = [==[
+                    local RS = game:GetService("ReplicatedStorage")
+                    local WeaponStats = RS.Assets.Modules.WeaponStats
+                    _G.barricaded_originals = _G.barricaded_originals or {}
+                    for _, mod in WeaponStats:GetChildren() do
+                        if not _G.barricaded_originals[mod.Name] then
+                            local ok, cfg = pcall(require, mod)
+                            if ok and type(cfg) == "table" then
+                                _G.barricaded_originals[mod.Name] = {_cfg = cfg, FireRate = cfg.FireRate, FireMode = cfg.FireMode, ReloadDelay = cfg.ReloadDelay}
+                            end
+                        end
+                    end
+                    for _, orig in pairs(_G.barricaded_originals) do
+                        if orig.FireRate then orig._cfg.FireRate = math.min(orig.FireRate, 0.055) end
+                        if orig.FireMode then orig._cfg.FireMode = "Auto" end
+                        if orig.ReloadDelay then orig._cfg.ReloadDelay = math.min(orig.ReloadDelay, 0.15) end
+                    end
+                    _G.dzakob_notify("Fast fire rate active - re-equip gun", "success")
+                    while _G.hub_toggles["Fast Fire Rate"] do task.wait(1) end
+                    for _, orig in pairs(_G.barricaded_originals) do
+                        if orig.FireRate then orig._cfg.FireRate = orig.FireRate end
+                        if orig.FireMode then orig._cfg.FireMode = orig.FireMode end
+                        if orig.ReloadDelay then orig._cfg.ReloadDelay = orig.ReloadDelay end
+                    end
+                    _G.dzakob_notify("Fire rate restored")
+                end
+            },
+            {
+                Name = "Auto Reload + Buy Ammo",
+                Description = "Auto reload when magazine drops, auto buy ammo when out",
+                Type = "toggle",
+                Run = function()
+                    local Players = game:GetService("Players")
+                    local RS = game:GetService("ReplicatedStorage")
+                    local WeaponStats = RS.Assets.Modules.WeaponStats
+                    local weaponRemote = RS.Network.WeaponSystem
+                    local shopRemote = RS.Network.ShopSystem
+                    local player = Players.LocalPlayer
+                    local reloading, buying = false, false
+                    local conns = {}
+                    local function ammoTypeFor(name)
+                        local m = WeaponStats:FindFirstChild(name)
+                        if m then local ok, c = pcall(require, m) if ok and c.AmmoType then return c.AmmoType end end
+                        return "Pistol"
+                    end
+                    local function watch(gun)
+                        if not gun:IsA("Folder") or gun:GetAttribute("WeaponType") ~= "Gun" then return end
+                        local stats = gun:WaitForChild("Statistics", 3)
+                        if not stats then return end
+                        local mag, reserve = stats:FindFirstChild("Magazine"), stats:FindFirstChild("Reserve")
+                        if not mag then return end
+                        local maxMag = mag.Value
+                        local function check()
+                            if not _G.hub_toggles["Auto Reload + Buy Ammo"] then return end
+                            if reserve and reserve.Value <= 0 and not buying then
+                                buying = true
+                                shopRemote:FireServer("MakePurchase", {ammoTypeFor(gun.Name), "Ammo"})
+                                local start = tick()
+                                while reserve.Value <= 0 and tick() - start < 2 do task.wait(0.05) end
+                                buying = false
+                            end
+                            if mag.Value < maxMag and reserve and reserve.Value > 0 and not reloading then
+                                reloading = true
+                                weaponRemote:FireServer("ReloadGun", {gun})
+                                task.wait(0.05)
+                                reloading = false
+                            end
+                        end
+                        table.insert(conns, mag:GetPropertyChangedSignal("Value"):Connect(check))
+                        if reserve then table.insert(conns, reserve:GetPropertyChangedSignal("Value"):Connect(check)) end
+                    end
+                    local function scan(char)
+                        for _, c in char:GetChildren() do watch(c) end
+                        table.insert(conns, char.ChildAdded:Connect(function(c) task.wait(0.1) watch(c) end))
+                    end
+                    if player.Character then scan(player.Character) end
+                    table.insert(conns, player.CharacterAdded:Connect(scan))
+                    _G.dzakob_notify("Auto ammo active", "success")
+                    while _G.hub_toggles["Auto Reload + Buy Ammo"] do task.wait(1) end
+                    for _, c in conns do c:Disconnect() end
+                    _G.dzakob_notify("Auto ammo stopped")
+                end
+            },
+            {
+                Name = "No Recoil + Spread",
+                Description = "Zero out recoil kick and bullet spread",
+                Type = "toggle",
+                Run = function()
+                    local RS = game:GetService("ReplicatedStorage")
+                    local WeaponStats = RS.Assets.Modules.WeaponStats
+                    local RECOIL_KICK = {"back","xyz","amount","kick","punch","jitter","recoilx","recoily","recoilz"}
+                    local RECOIL_SKIP = {"threshold","speed","damp","time","delay","duration","rate","decay"}
+                    local SPREAD_HINTS = {"spread","bloom","accuracy","deviation","cone"}
+                    local function zeroField(v)
+                        if type(v) == "number" then return 0 end
+                        if typeof(v) == "Vector3" then return Vector3.new(0,0,0) end
+                        if typeof(v) == "Vector2" then return Vector2.new(0,0) end
+                        if typeof(v) == "NumberRange" then return NumberRange.new(0,0) end
+                        return v
+                    end
+                    local function isNum(v) local t = typeof(v) return t == "number" or t == "Vector3" or t == "Vector2" or t == "NumberRange" end
+                    local function keyMatch(k, hints, skip)
+                        if type(k) ~= "string" then return false end
+                        local l = k:lower()
+                        if skip then for _, h in skip do if l:find(h,1,true) then return false end end end
+                        for _, h in hints do if l:find(h,1,true) then return true end end
+                        return false
+                    end
+                    local touched = {}
+                    for _, mod in WeaponStats:GetChildren() do
+                        local ok, cfg = pcall(require, mod)
+                        if ok and type(cfg) == "table" then
+                            for _, tname in {"RecoilSettings"} do
+                                if type(cfg[tname]) == "table" then
+                                    for k, v in pairs(cfg[tname]) do
+                                        if keyMatch(k, RECOIL_KICK, RECOIL_SKIP) and isNum(v) then
+                                            table.insert(touched, {tbl = cfg[tname], key = k, orig = v})
+                                            cfg[tname][k] = zeroField(v)
+                                        elseif type(v) == "table" then
+                                            for sk, sv in pairs(v) do
+                                                if isNum(sv) and keyMatch(k, RECOIL_KICK, RECOIL_SKIP) then
+                                                    table.insert(touched, {tbl = v, key = sk, orig = sv})
+                                                    v[sk] = zeroField(sv)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            for _, tname in {"FireSettings","CrosshairSettings","ADSSettings"} do
+                                if type(cfg[tname]) == "table" then
+                                    for k, v in pairs(cfg[tname]) do
+                                        if keyMatch(k, SPREAD_HINTS) and isNum(v) then
+                                            table.insert(touched, {tbl = cfg[tname], key = k, orig = v})
+                                            cfg[tname][k] = zeroField(v)
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    _G.dzakob_notify("No recoil active - re-equip gun", "success")
+                    while _G.hub_toggles["No Recoil + Spread"] do task.wait(1) end
+                    for i = #touched, 1, -1 do
+                        local r = touched[i]
+                        r.tbl[r.key] = r.orig
+                    end
+                    _G.dzakob_notify("Recoil restored")
+                end
+            }
+        }
+    }
+}
+
+do
+                    local BARRICADED_GUI_SRC_UNUSED = [==[
 -- Fast Fire Rate + Auto Ammo GUI
 
 local UIS = game:GetService("UserInputService")
@@ -687,12 +841,7 @@ end)
 print("GUI loaded")
 
 ]==]
-                    loadstring(BARRICADED_GUI_SRC)()
-                end
-            }
-        }
-    }
-}
+end
 
 -- =====================
 -- KEY SYSTEM CONFIG
