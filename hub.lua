@@ -348,29 +348,23 @@ local Games = {
                         end
                     end
 
-                    for _, m in workspace:GetDescendants() do
-                        if isEnemy(m) then makeBar(m) end
-                    end
-
-                    table.insert(conns, workspace.DescendantAdded:Connect(function(d)
-                        task.spawn(function()
-                            for attempt = 1, 3 do
-                                task.wait(0.5)
-                                if isEnemy(d) then
-                                    makeBar(d)
-                                    if bars[d] then return end
-                                end
-                            end
-                        end)
-                    end))
-                    table.insert(conns, workspace.DescendantRemoving:Connect(killBar))
-
+                    -- Periodic scan handles: initial state, new spawns, respawns,
+                    -- team changes, map reloads. Simple + robust.
                     task.spawn(function()
                         while _G.hub_toggles["Enemy HP Bars"] do
-                            for _, m in workspace:GetDescendants() do
-                                if isEnemy(m) and not bars[m] then makeBar(m) end
+                            -- scan Characters folder + all player characters
+                            local charFolder = workspace:FindFirstChild("Characters")
+                            if charFolder then
+                                for _, m in charFolder:GetChildren() do
+                                    if isEnemy(m) and not bars[m] then makeBar(m) end
+                                end
                             end
-                            task.wait(2)
+                            for _, plr in Players:GetPlayers() do
+                                if plr.Character and isEnemy(plr.Character) and not bars[plr.Character] then
+                                    makeBar(plr.Character)
+                                end
+                            end
+                            task.wait(1)
                         end
                     end)
 
@@ -475,19 +469,24 @@ local Games = {
                         highlighted[p] = nil
                     end
 
-                    -- damage zones only live under workspace.Map.DamageZones
-                    local zoneFolder = workspace:FindFirstChild("Map")
-                    zoneFolder = zoneFolder and zoneFolder:FindFirstChild("DamageZones")
-                    if zoneFolder then
-                        for _, p in zoneFolder:GetChildren() do apply(p) end
-                        table.insert(conns, zoneFolder.ChildAdded:Connect(apply))
-                    end
+                    -- Periodic scan handles: folder not loaded yet, new zones spawning,
+                    -- map changes between rounds. Cheap because we only scan a small folder.
+                    task.spawn(function()
+                        while _G.hub_toggles["Show Damage Zones"] do
+                            local map = workspace:FindFirstChild("Map")
+                            local zoneFolder = map and map:FindFirstChild("DamageZones")
+                            if zoneFolder then
+                                for _, p in zoneFolder:GetChildren() do apply(p) end
+                            end
+                            task.wait(2)
+                        end
+                    end)
 
                     _G.dzakob_notify("Damage zones highlighted", "success")
 
-                    while _G.hub_toggles["Show Damage Zones"] do task.wait(1) end
+                    while _G.hub_toggles["Show Damage Zones"] do task.wait(0.2) end
 
-                    for _, c in conns do c:Disconnect() end
+                    task.wait(0.1)
                     for p in pairs(highlighted) do restore(p) end
                     _G.dzakob_notify("Damage zones hidden")
                 end
@@ -532,17 +531,12 @@ local Games = {
                         highlighted[p] = nil
                     end
 
-                    -- one-shot scan, walls don't spawn dynamically
-                    local map = workspace:FindFirstChild("Map") or workspace
-                    for _, p in map:GetDescendants() do apply(p) end
-
-                    -- slow periodic re-scan for map changes only
+                    -- periodic scan: handles map not loaded yet + round changes
                     task.spawn(function()
                         while _G.hub_toggles["Show Invisible Walls"] do
-                            task.wait(10)
-                            if not _G.hub_toggles["Show Invisible Walls"] then return end
                             local m = workspace:FindFirstChild("Map") or workspace
                             for _, p in m:GetDescendants() do apply(p) end
+                            task.wait(5)
                         end
                     end)
 
@@ -550,8 +544,7 @@ local Games = {
 
                     while _G.hub_toggles["Show Invisible Walls"] do task.wait(0.2) end
 
-                    for _, c in conns do c:Disconnect() end
-                    task.wait(0.1)  -- let any in-flight callbacks finish
+                    task.wait(0.1)
                     for p in pairs(highlighted) do restore(p) end
                     _G.dzakob_notify("Invisible walls hidden")
                 end
@@ -701,45 +694,28 @@ local Games = {
                         end
                     end
 
-                    -- initial scan — only characters folder (much smaller than workspace)
-                    local charFolder = workspace:FindFirstChild("Characters")
-                    if charFolder then
-                        for _, m in charFolder:GetChildren() do apply(m) end
-                    end
-                    for _, plr in Players:GetPlayers() do
-                        if plr.Character then apply(plr.Character) end
-                    end
-
                     local TOGGLE = "Zombie + Nest ESP"
 
-                    if charFolder then
-                        table.insert(conns, charFolder.ChildAdded:Connect(function(m)
-                            task.wait(0.3)
-                            if not _G.hub_toggles[TOGGLE] then return end
-                            apply(m)
-                        end))
-                    end
-                    for _, plr in Players:GetPlayers() do
-                        table.insert(conns, plr.CharacterAdded:Connect(function(c)
-                            task.wait(0.3)
-                            if not _G.hub_toggles[TOGGLE] then return end
-                            apply(c)
-                        end))
-                    end
-                    table.insert(conns, Players.PlayerAdded:Connect(function(plr)
-                        table.insert(conns, plr.CharacterAdded:Connect(function(c)
-                            task.wait(0.3)
-                            if not _G.hub_toggles[TOGGLE] then return end
-                            apply(c)
-                        end))
-                    end))
-
+                    -- Periodic scan: handles initial state, respawns, mid-round spawns,
+                    -- flesh nests placed anywhere in workspace, map reloads
                     task.spawn(function()
                         while _G.hub_toggles[TOGGLE] do
-                            for _, d in workspace:GetDescendants() do
-                                if isFleshNest(d) then apply(d) end
+                            local charFolder = workspace:FindFirstChild("Characters")
+                            if charFolder then
+                                for _, m in charFolder:GetChildren() do
+                                    if isZombie(m) and not highlighted[m] then apply(m) end
+                                end
                             end
-                            task.wait(3)
+                            for _, plr in Players:GetPlayers() do
+                                if plr.Character and isZombie(plr.Character) and not highlighted[plr.Character] then
+                                    apply(plr.Character)
+                                end
+                            end
+                            -- flesh nests scan (they can appear anywhere in workspace)
+                            for _, d in workspace:GetDescendants() do
+                                if isFleshNest(d) and not highlighted[d] then apply(d) end
+                            end
+                            task.wait(2)
                         end
                     end)
 
