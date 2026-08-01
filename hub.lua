@@ -251,6 +251,8 @@ local Games = {
                     local lp = Players.LocalPlayer
                     local bars = {}
                     local conns = {}
+                    local UPDATE_INTERVAL = 0.1  -- 10Hz instead of 60Hz
+                    local MAX_DIST = 300  -- distance cull
 
                     local function isEnemy(model)
                         if not model:IsA("Model") then return false end
@@ -372,28 +374,56 @@ local Games = {
                         end
                     end)
 
-                    -- update loop
-                    local updateConn = RunService.Heartbeat:Connect(function()
-                        for model, data in pairs(bars) do
-                            if not model.Parent or data.hum.Health <= 0 or not data.hum.Parent then
-                                killBar(model)
-                            else
-                                local maxHp = data.hum.MaxHealth
-                                if maxHp <= 0 then maxHp = data.hum.Health end
-                                local pct = math.clamp(data.hum.Health / maxHp, 0, 1)
-                                data.fill.Size = UDim2.new(pct, 0, 1, 0)
-                                if pct > 0.6 then
-                                    data.fill.BackgroundColor3 = Color3.fromRGB(80, 220, 80)
-                                elseif pct > 0.3 then
-                                    data.fill.BackgroundColor3 = Color3.fromRGB(255, 200, 40)
+                    -- Cached colors so we're not making new Color3 each update
+                    local COLOR_GREEN = Color3.fromRGB(80, 220, 80)
+                    local COLOR_YELLOW = Color3.fromRGB(255, 200, 40)
+                    local COLOR_RED = Color3.fromRGB(255, 60, 60)
+
+                    -- Throttled + distance-culled update loop
+                    task.spawn(function()
+                        while _G.hub_toggles["Enemy HP Bars"] do
+                            local myChar = lp.Character
+                            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                            local myPos = myRoot and myRoot.Position
+
+                            for model, data in pairs(bars) do
+                                if not model.Parent or data.hum.Health <= 0 or not data.hum.Parent then
+                                    killBar(model)
                                 else
-                                    data.fill.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+                                    -- distance cull
+                                    local visible = true
+                                    if myPos then
+                                        local head = data.gui.Adornee
+                                        if head then
+                                            visible = (head.Position - myPos).Magnitude <= MAX_DIST
+                                        end
+                                    end
+                                    data.gui.Enabled = visible
+                                    if visible then
+                                        local hp = data.hum.Health
+                                        local maxHp = data.hum.MaxHealth
+                                        if maxHp <= 0 then maxHp = hp end
+
+                                        -- only update if value changed
+                                        if hp ~= data.lastHp or maxHp ~= data.lastMax then
+                                            local pct = hp / maxHp
+                                            if pct > 1 then pct = 1 elseif pct < 0 then pct = 0 end
+                                            data.fill.Size = UDim2.new(pct, 0, 1, 0)
+                                            local color = pct > 0.6 and COLOR_GREEN or (pct > 0.3 and COLOR_YELLOW or COLOR_RED)
+                                            if color ~= data.lastColor then
+                                                data.fill.BackgroundColor3 = color
+                                                data.lastColor = color
+                                            end
+                                            data.text.Text = math.floor(hp).."/"..math.floor(maxHp)
+                                            data.lastHp = hp
+                                            data.lastMax = maxHp
+                                        end
+                                    end
                                 end
-                                data.text.Text = math.floor(data.hum.Health).."/"..math.floor(maxHp)
                             end
+                            task.wait(UPDATE_INTERVAL)
                         end
                     end)
-                    table.insert(conns, updateConn)
 
                     _G.dzakob_notify("Enemy HP bars on", "success")
 
@@ -444,12 +474,13 @@ local Games = {
                         highlighted[p] = nil
                     end
 
-                    for _, p in workspace:GetDescendants() do apply(p) end
-
-                    table.insert(conns, workspace.DescendantAdded:Connect(function(p)
-                        task.wait(0.1)
-                        apply(p)
-                    end))
+                    -- damage zones only live under workspace.Map.DamageZones
+                    local zoneFolder = workspace:FindFirstChild("Map")
+                    zoneFolder = zoneFolder and zoneFolder:FindFirstChild("DamageZones")
+                    if zoneFolder then
+                        for _, p in zoneFolder:GetChildren() do apply(p) end
+                        table.insert(conns, zoneFolder.ChildAdded:Connect(apply))
+                    end
 
                     _G.dzakob_notify("Damage zones highlighted", "success")
 
@@ -500,12 +531,18 @@ local Games = {
                         highlighted[p] = nil
                     end
 
-                    for _, p in workspace:GetDescendants() do apply(p) end
+                    -- one-shot scan, walls don't spawn dynamically
+                    local map = workspace:FindFirstChild("Map") or workspace
+                    for _, p in map:GetDescendants() do apply(p) end
 
-                    table.insert(conns, workspace.DescendantAdded:Connect(function(p)
-                        task.wait(0.1)
-                        apply(p)
-                    end))
+                    -- slow periodic re-scan for map changes only
+                    task.spawn(function()
+                        while _G.hub_toggles["Show Invisible Walls"] do
+                            task.wait(10)
+                            local m = workspace:FindFirstChild("Map") or workspace
+                            for _, p in m:GetDescendants() do apply(p) end
+                        end
+                    end)
 
                     _G.dzakob_notify("Invisible walls highlighted", "success")
 
@@ -661,13 +698,45 @@ local Games = {
                         end
                     end
 
-                    for _, d in workspace:GetDescendants() do apply(d) end
+                    -- initial scan — only characters folder (much smaller than workspace)
+                    local charFolder = workspace:FindFirstChild("Characters")
+                    if charFolder then
+                        for _, m in charFolder:GetChildren() do apply(m) end
+                    end
+                    for _, plr in Players:GetPlayers() do
+                        if plr.Character then apply(plr.Character) end
+                    end
 
-                    table.insert(conns, workspace.DescendantAdded:Connect(function(d)
-                        task.wait(0.2)
-                        apply(d)
+                    -- only listen to Characters folder additions, not full workspace
+                    if charFolder then
+                        table.insert(conns, charFolder.ChildAdded:Connect(function(m)
+                            task.wait(0.3)
+                            apply(m)
+                        end))
+                    end
+                    -- watch player characters (respawns)
+                    for _, plr in Players:GetPlayers() do
+                        table.insert(conns, plr.CharacterAdded:Connect(function(c)
+                            task.wait(0.3)
+                            apply(c)
+                        end))
+                    end
+                    table.insert(conns, Players.PlayerAdded:Connect(function(plr)
+                        table.insert(conns, plr.CharacterAdded:Connect(function(c)
+                            task.wait(0.3)
+                            apply(c)
+                        end))
                     end))
-                    table.insert(conns, workspace.DescendantRemoving:Connect(remove))
+
+                    -- slow periodic scan for flesh nests (they can appear anywhere)
+                    task.spawn(function()
+                        while _G.hub_toggles["Zombie + Nest ESP"] do
+                            for _, d in workspace:GetDescendants() do
+                                if isFleshNest(d) then apply(d) end
+                            end
+                            task.wait(3)
+                        end
+                    end)
 
                     _G.dzakob_notify("ESP active - red=zombies, pink=nests", "success")
 
