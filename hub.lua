@@ -242,6 +242,113 @@ local Games = {
                 end
             },
             {
+                Name = "Zombie HP Bars",
+                Description = "Floating HP bar above every zombie",
+                Type = "toggle",
+                Run = function()
+                    local Players = game:GetService("Players")
+                    local RunService = game:GetService("RunService")
+                    local lp = Players.LocalPlayer
+                    local bars = {}
+                    local conns = {}
+
+                    local function isZombie(model)
+                        if not model:IsA("Model") then return false end
+                        if model == lp.Character then return false end
+                        local hum = model:FindFirstChildOfClass("Humanoid")
+                        if not hum or hum.Health <= 0 then return false end
+                        local plr = Players:GetPlayerFromCharacter(model)
+                        if plr then return lp.Team and plr.Team ~= lp.Team end
+                        return model.Parent and model.Parent.Name == "Characters"
+                    end
+
+                    local function makeBar(model)
+                        if bars[model] then return end
+                        local head = model:FindFirstChild("Head") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                        local hum = model:FindFirstChildOfClass("Humanoid")
+                        if not head or not hum then return end
+
+                        local gui = Instance.new("BillboardGui")
+                        gui.Name = "ZombieHPBar"
+                        gui.Adornee = head
+                        gui.Size = UDim2.new(0, 100, 0, 14)
+                        gui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        gui.AlwaysOnTop = true
+                        gui.MaxDistance = 500
+
+                        local bg = Instance.new("Frame", gui)
+                        bg.Size = UDim2.new(1, 0, 1, 0)
+                        bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                        bg.BorderSizePixel = 0
+
+                        local fill = Instance.new("Frame", bg)
+                        fill.Name = "Fill"
+                        fill.Size = UDim2.new(1, 0, 1, 0)
+                        fill.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+                        fill.BorderSizePixel = 0
+
+                        local text = Instance.new("TextLabel", bg)
+                        text.Name = "HPText"
+                        text.Size = UDim2.new(1, 0, 1, 0)
+                        text.BackgroundTransparency = 1
+                        text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        text.TextStrokeTransparency = 0
+                        text.TextScaled = true
+                        text.Font = Enum.Font.GothamBold
+                        text.ZIndex = 2
+
+                        gui.Parent = head
+                        bars[model] = {gui = gui, fill = fill, text = text, hum = hum}
+                    end
+
+                    local function killBar(model)
+                        if bars[model] then
+                            pcall(function() bars[model].gui:Destroy() end)
+                            bars[model] = nil
+                        end
+                    end
+
+                    for _, m in workspace:GetDescendants() do
+                        if isZombie(m) then makeBar(m) end
+                    end
+
+                    table.insert(conns, workspace.DescendantAdded:Connect(function(d)
+                        task.wait(0.2)
+                        if isZombie(d) then makeBar(d) end
+                    end))
+                    table.insert(conns, workspace.DescendantRemoving:Connect(killBar))
+
+                    -- update loop
+                    local updateConn = RunService.Heartbeat:Connect(function()
+                        for model, data in pairs(bars) do
+                            if not model.Parent or data.hum.Health <= 0 then
+                                killBar(model)
+                            else
+                                local pct = data.hum.Health / data.hum.MaxHealth
+                                data.fill.Size = UDim2.new(pct, 0, 1, 0)
+                                if pct > 0.6 then
+                                    data.fill.BackgroundColor3 = Color3.fromRGB(80, 220, 80)
+                                elseif pct > 0.3 then
+                                    data.fill.BackgroundColor3 = Color3.fromRGB(255, 200, 40)
+                                else
+                                    data.fill.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+                                end
+                                data.text.Text = math.floor(data.hum.Health).."/"..math.floor(data.hum.MaxHealth)
+                            end
+                        end
+                    end)
+                    table.insert(conns, updateConn)
+
+                    _G.dzakob_notify("Zombie HP bars on", "success")
+
+                    while _G.hub_toggles["Zombie HP Bars"] do task.wait(1) end
+
+                    for _, c in conns do c:Disconnect() end
+                    for m in pairs(bars) do killBar(m) end
+                    _G.dzakob_notify("Zombie HP bars off")
+                end
+            },
+            {
                 Name = "Show Damage Zones",
                 Description = "Highlight invisible damage zones in yellow",
                 Type = "toggle",
