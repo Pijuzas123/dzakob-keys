@@ -427,9 +427,10 @@ local Games = {
 
                     _G.dzakob_notify("Enemy HP bars on", "success")
 
-                    while _G.hub_toggles["Enemy HP Bars"] do task.wait(1) end
+                    while _G.hub_toggles["Enemy HP Bars"] do task.wait(0.2) end
 
                     for _, c in conns do c:Disconnect() end
+                    task.wait(UPDATE_INTERVAL + 0.1)  -- let update loop exit
                     for m in pairs(bars) do killBar(m) end
                     _G.dzakob_notify("Enemy HP bars off")
                 end
@@ -539,6 +540,7 @@ local Games = {
                     task.spawn(function()
                         while _G.hub_toggles["Show Invisible Walls"] do
                             task.wait(10)
+                            if not _G.hub_toggles["Show Invisible Walls"] then return end
                             local m = workspace:FindFirstChild("Map") or workspace
                             for _, p in m:GetDescendants() do apply(p) end
                         end
@@ -546,9 +548,10 @@ local Games = {
 
                     _G.dzakob_notify("Invisible walls highlighted", "success")
 
-                    while _G.hub_toggles["Show Invisible Walls"] do task.wait(1) end
+                    while _G.hub_toggles["Show Invisible Walls"] do task.wait(0.2) end
 
                     for _, c in conns do c:Disconnect() end
+                    task.wait(0.1)  -- let any in-flight callbacks finish
                     for p in pairs(highlighted) do restore(p) end
                     _G.dzakob_notify("Invisible walls hidden")
                 end
@@ -707,30 +710,32 @@ local Games = {
                         if plr.Character then apply(plr.Character) end
                     end
 
-                    -- only listen to Characters folder additions, not full workspace
+                    local TOGGLE = "Zombie + Nest ESP"
+
                     if charFolder then
                         table.insert(conns, charFolder.ChildAdded:Connect(function(m)
                             task.wait(0.3)
+                            if not _G.hub_toggles[TOGGLE] then return end
                             apply(m)
                         end))
                     end
-                    -- watch player characters (respawns)
                     for _, plr in Players:GetPlayers() do
                         table.insert(conns, plr.CharacterAdded:Connect(function(c)
                             task.wait(0.3)
+                            if not _G.hub_toggles[TOGGLE] then return end
                             apply(c)
                         end))
                     end
                     table.insert(conns, Players.PlayerAdded:Connect(function(plr)
                         table.insert(conns, plr.CharacterAdded:Connect(function(c)
                             task.wait(0.3)
+                            if not _G.hub_toggles[TOGGLE] then return end
                             apply(c)
                         end))
                     end))
 
-                    -- slow periodic scan for flesh nests (they can appear anywhere)
                     task.spawn(function()
-                        while _G.hub_toggles["Zombie + Nest ESP"] do
+                        while _G.hub_toggles[TOGGLE] do
                             for _, d in workspace:GetDescendants() do
                                 if isFleshNest(d) then apply(d) end
                             end
@@ -754,9 +759,10 @@ local Games = {
                         end
                     end)
 
-                    while _G.hub_toggles["Zombie + Nest ESP"] do task.wait(1) end
+                    while _G.hub_toggles["Zombie + Nest ESP"] do task.wait(0.2) end
 
                     for _, c in conns do c:Disconnect() end
+                    task.wait(0.4)  -- let in-flight callbacks finish
                     for inst, _ in pairs(highlighted) do remove(inst) end
                     _G.dzakob_notify("ESP disabled")
                 end
