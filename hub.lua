@@ -251,8 +251,8 @@ local Games = {
                     local lp = Players.LocalPlayer
                     local bars = {}
                     local conns = {}
-                    local UPDATE_INTERVAL = 0.1  -- 10Hz instead of 60Hz
-                    local MAX_DIST = 300  -- distance cull
+                    local UPDATE_INTERVAL = 0.1
+                    local MAX_DIST = 800
 
                     local function isEnemy(model)
                         if not model:IsA("Model") then return false end
@@ -295,7 +295,7 @@ local Games = {
                         gui.Size = UDim2.new(0, 90, 0, 12)
                         gui.StudsOffset = Vector3.new(0, 3, 0)
                         gui.AlwaysOnTop = true
-                        gui.MaxDistance = 500
+                        gui.MaxDistance = 1000
                         gui.LightInfluence = 0
 
                         local bg = Instance.new("Frame", gui)
@@ -337,8 +337,14 @@ local Games = {
                         textConstraint.MinTextSize = 8
                         textConstraint.MaxTextSize = 11
 
+                        -- set initial text so it's never blank/"Label"
+                        local initHp = hum.Health
+                        local initMax = hum.MaxHealth > 0 and hum.MaxHealth or initHp
+                        text.Text = math.floor(initHp).."/"..math.floor(initMax)
+                        fill.Size = UDim2.new(math.clamp(initHp/initMax, 0, 1), 0, 1, 0)
+
                         gui.Parent = head
-                        bars[model] = {gui = gui, fill = fill, text = text, hum = hum}
+                        bars[model] = {gui = gui, fill = fill, text = text, hum = hum, lastHp = initHp, lastMax = initMax}
                     end
 
                     local function killBar(model)
@@ -349,10 +355,10 @@ local Games = {
                     end
 
                     -- Periodic scan handles: initial state, new spawns, respawns,
-                    -- team changes, map reloads. Simple + robust.
+                    -- team changes, map reloads. Removes bars for ex-enemies too.
                     task.spawn(function()
                         while _G.hub_toggles["Enemy HP Bars"] do
-                            -- scan Characters folder + all player characters
+                            -- add bars for new enemies
                             local charFolder = workspace:FindFirstChild("Characters")
                             if charFolder then
                                 for _, m in charFolder:GetChildren() do
@@ -362,6 +368,12 @@ local Games = {
                             for _, plr in Players:GetPlayers() do
                                 if plr.Character and isEnemy(plr.Character) and not bars[plr.Character] then
                                     makeBar(plr.Character)
+                                end
+                            end
+                            -- remove bars for models that are no longer enemies (team switch etc)
+                            for model in pairs(bars) do
+                                if not model.Parent or not isEnemy(model) then
+                                    killBar(model)
                                 end
                             end
                             task.wait(1)
@@ -446,12 +458,16 @@ local Games = {
                     end
 
                     local function apply(p)
-                        if not isDamageZone(p) or highlighted[p] then return end
-                        highlighted[p] = {
-                            Transparency = p.Transparency,
-                            Color = p.Color,
-                            Material = p.Material,
-                        }
+                        if not isDamageZone(p) then return end
+                        -- snapshot originals only once
+                        if not highlighted[p] then
+                            highlighted[p] = {
+                                Transparency = p.Transparency,
+                                Color = p.Color,
+                                Material = p.Material,
+                            }
+                        end
+                        -- always re-apply — game may reset properties per round
                         p.Transparency = 0.6
                         p.Color = Color3.fromRGB(255, 200, 0)
                         p.Material = Enum.Material.Neon
@@ -508,7 +524,16 @@ local Games = {
                     end
 
                     local function apply(p)
-                        if not isInvisWall(p) or highlighted[p] then return end
+                        -- for already-highlighted parts, just re-apply visual (in case reset)
+                        if highlighted[p] then
+                            pcall(function()
+                                p.Transparency = 0.5
+                                p.Color = Color3.fromRGB(255, 0, 100)
+                                p.Material = Enum.Material.Neon
+                            end)
+                            return
+                        end
+                        if not isInvisWall(p) then return end
                         highlighted[p] = {
                             Transparency = p.Transparency,
                             Color = p.Color,
