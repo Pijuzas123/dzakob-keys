@@ -684,8 +684,16 @@ local Games = {
                         if model == lp.Character then return false end
                         local hum = model:FindFirstChildOfClass("Humanoid")
                         if not hum or hum.Health <= 0 then return false end
+
+                        -- player-controlled: check if they're on the Zombies team
                         local plr = Players:GetPlayerFromCharacter(model)
-                        if plr then return lp.Team and plr.Team ~= lp.Team end
+                        if plr then
+                            return plr.Team and plr.Team.Name == "Zombies"
+                        end
+
+                        -- AI: check Team attribute or Characters folder
+                        local aiTeam = model:GetAttribute("Team")
+                        if aiTeam then return aiTeam == "Zombies" end
                         return model.Parent and model.Parent.Name == "Characters"
                     end
 
