@@ -242,8 +242,8 @@ local Games = {
                 end
             },
             {
-                Name = "Zombie HP Bars",
-                Description = "Floating HP bar above every zombie",
+                Name = "Enemy HP Bars",
+                Description = "HP bars on zombies if you're human, on humans if you're zombie",
                 Type = "toggle",
                 Run = function()
                     local Players = game:GetService("Players")
@@ -252,14 +252,30 @@ local Games = {
                     local bars = {}
                     local conns = {}
 
-                    local function isZombie(model)
+                    local function isEnemy(model)
                         if not model:IsA("Model") then return false end
                         if model == lp.Character then return false end
                         local hum = model:FindFirstChildOfClass("Humanoid")
                         if not hum or hum.Health <= 0 then return false end
+                        local myTeam = lp.Team and lp.Team.Name
+
                         local plr = Players:GetPlayerFromCharacter(model)
-                        if plr then return lp.Team and plr.Team ~= lp.Team end
-                        return model.Parent and model.Parent.Name == "Characters"
+                        if plr then
+                            return lp.Team and plr.Team ~= lp.Team
+                        end
+
+                        -- AI: check Team attribute
+                        local aiTeam = model:GetAttribute("Team")
+                        if aiTeam then
+                            return aiTeam ~= myTeam
+                        end
+
+                        -- fallback: AI in Characters folder is a zombie
+                        -- show only if I'm human
+                        if model.Parent and model.Parent.Name == "Characters" then
+                            return myTeam == "Civilians"
+                        end
+                        return false
                     end
 
                     local function makeBar(model)
@@ -274,21 +290,35 @@ local Games = {
                         local gui = Instance.new("BillboardGui")
                         gui.Name = "ZombieHPBar"
                         gui.Adornee = head
-                        gui.Size = UDim2.new(0, 100, 0, 14)
-                        gui.StudsOffset = Vector3.new(0, 2.5, 0)
+                        gui.Size = UDim2.new(0, 90, 0, 12)
+                        gui.StudsOffset = Vector3.new(0, 3, 0)
                         gui.AlwaysOnTop = true
                         gui.MaxDistance = 500
+                        gui.LightInfluence = 0
 
                         local bg = Instance.new("Frame", gui)
                         bg.Size = UDim2.new(1, 0, 1, 0)
-                        bg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                        bg.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+                        bg.BackgroundTransparency = 0.25
                         bg.BorderSizePixel = 0
+
+                        local bgCorner = Instance.new("UICorner", bg)
+                        bgCorner.CornerRadius = UDim.new(0, 4)
+
+                        local bgStroke = Instance.new("UIStroke", bg)
+                        bgStroke.Color = Color3.fromRGB(0, 0, 0)
+                        bgStroke.Thickness = 1
+                        bgStroke.Transparency = 0.2
+                        bgStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
                         local fill = Instance.new("Frame", bg)
                         fill.Name = "Fill"
                         fill.Size = UDim2.new(1, 0, 1, 0)
-                        fill.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+                        fill.BackgroundColor3 = Color3.fromRGB(80, 220, 80)
                         fill.BorderSizePixel = 0
+
+                        local fillCorner = Instance.new("UICorner", fill)
+                        fillCorner.CornerRadius = UDim.new(0, 4)
 
                         local text = Instance.new("TextLabel", bg)
                         text.Name = "HPText"
@@ -296,9 +326,14 @@ local Games = {
                         text.BackgroundTransparency = 1
                         text.TextColor3 = Color3.fromRGB(255, 255, 255)
                         text.TextStrokeTransparency = 0
+                        text.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
                         text.TextScaled = true
                         text.Font = Enum.Font.GothamBold
                         text.ZIndex = 2
+
+                        local textConstraint = Instance.new("UITextSizeConstraint", text)
+                        textConstraint.MinTextSize = 8
+                        textConstraint.MaxTextSize = 11
 
                         gui.Parent = head
                         bars[model] = {gui = gui, fill = fill, text = text, hum = hum}
@@ -312,15 +347,14 @@ local Games = {
                     end
 
                     for _, m in workspace:GetDescendants() do
-                        if isZombie(m) then makeBar(m) end
+                        if isEnemy(m) then makeBar(m) end
                     end
 
                     table.insert(conns, workspace.DescendantAdded:Connect(function(d)
                         task.spawn(function()
-                            -- retry up to 3 times over 1.5s to catch late-loading humanoids
                             for attempt = 1, 3 do
                                 task.wait(0.5)
-                                if isZombie(d) then
+                                if isEnemy(d) then
                                     makeBar(d)
                                     if bars[d] then return end
                                 end
@@ -329,11 +363,10 @@ local Games = {
                     end))
                     table.insert(conns, workspace.DescendantRemoving:Connect(killBar))
 
-                    -- periodic re-scan to catch anything DescendantAdded missed
                     task.spawn(function()
-                        while _G.hub_toggles["Zombie HP Bars"] do
+                        while _G.hub_toggles["Enemy HP Bars"] do
                             for _, m in workspace:GetDescendants() do
-                                if isZombie(m) and not bars[m] then makeBar(m) end
+                                if isEnemy(m) and not bars[m] then makeBar(m) end
                             end
                             task.wait(2)
                         end
@@ -362,13 +395,13 @@ local Games = {
                     end)
                     table.insert(conns, updateConn)
 
-                    _G.dzakob_notify("Zombie HP bars on", "success")
+                    _G.dzakob_notify("Enemy HP bars on", "success")
 
-                    while _G.hub_toggles["Zombie HP Bars"] do task.wait(1) end
+                    while _G.hub_toggles["Enemy HP Bars"] do task.wait(1) end
 
                     for _, c in conns do c:Disconnect() end
                     for m in pairs(bars) do killBar(m) end
-                    _G.dzakob_notify("Zombie HP bars off")
+                    _G.dzakob_notify("Enemy HP bars off")
                 end
             },
             {
