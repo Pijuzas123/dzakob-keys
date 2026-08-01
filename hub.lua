@@ -251,12 +251,10 @@ local Games = {
 
                     local function isDamageZone(p)
                         if not p:IsA("BasePart") then return false end
-                        local n = p.Name:lower()
-                        if n:find("damage") or n:find("kill") or n:find("death") or n:find("hurt") then
-                            return true
-                        end
-                        if p.Parent and p.Parent.Name:lower():find("damagezone") then return true end
-                        return false
+                        -- only match parts directly under workspace.Map.DamageZones
+                        local parent = p.Parent
+                        return parent and parent.Name == "DamageZones"
+                            and parent.Parent and parent.Parent.Name == "Map"
                     end
 
                     local function apply(p)
