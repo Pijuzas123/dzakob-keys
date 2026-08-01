@@ -264,7 +264,10 @@ local Games = {
 
                     local function makeBar(model)
                         if bars[model] then return end
-                        local head = model:FindFirstChild("Head") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                        local head = model:FindFirstChild("Head")
+                                  or model:FindFirstChild("HumanoidRootPart")
+                                  or model.PrimaryPart
+                                  or model:FindFirstChildWhichIsA("BasePart")
                         local hum = model:FindFirstChildOfClass("Humanoid")
                         if not head or not hum then return end
 
@@ -313,18 +316,38 @@ local Games = {
                     end
 
                     table.insert(conns, workspace.DescendantAdded:Connect(function(d)
-                        task.wait(0.2)
-                        if isZombie(d) then makeBar(d) end
+                        task.spawn(function()
+                            -- retry up to 3 times over 1.5s to catch late-loading humanoids
+                            for attempt = 1, 3 do
+                                task.wait(0.5)
+                                if isZombie(d) then
+                                    makeBar(d)
+                                    if bars[d] then return end
+                                end
+                            end
+                        end)
                     end))
                     table.insert(conns, workspace.DescendantRemoving:Connect(killBar))
+
+                    -- periodic re-scan to catch anything DescendantAdded missed
+                    task.spawn(function()
+                        while _G.hub_toggles["Zombie HP Bars"] do
+                            for _, m in workspace:GetDescendants() do
+                                if isZombie(m) and not bars[m] then makeBar(m) end
+                            end
+                            task.wait(2)
+                        end
+                    end)
 
                     -- update loop
                     local updateConn = RunService.Heartbeat:Connect(function()
                         for model, data in pairs(bars) do
-                            if not model.Parent or data.hum.Health <= 0 then
+                            if not model.Parent or data.hum.Health <= 0 or not data.hum.Parent then
                                 killBar(model)
                             else
-                                local pct = data.hum.Health / data.hum.MaxHealth
+                                local maxHp = data.hum.MaxHealth
+                                if maxHp <= 0 then maxHp = data.hum.Health end
+                                local pct = math.clamp(data.hum.Health / maxHp, 0, 1)
                                 data.fill.Size = UDim2.new(pct, 0, 1, 0)
                                 if pct > 0.6 then
                                     data.fill.BackgroundColor3 = Color3.fromRGB(80, 220, 80)
@@ -333,7 +356,7 @@ local Games = {
                                 else
                                     data.fill.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
                                 end
-                                data.text.Text = math.floor(data.hum.Health).."/"..math.floor(data.hum.MaxHealth)
+                                data.text.Text = math.floor(data.hum.Health).."/"..math.floor(maxHp)
                             end
                         end
                     end)
