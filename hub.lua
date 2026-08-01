@@ -242,6 +242,64 @@ local Games = {
                 end
             },
             {
+                Name = "Show Damage Zones",
+                Description = "Highlight invisible damage zones in yellow",
+                Type = "toggle",
+                Run = function()
+                    local highlighted = {}
+                    local conns = {}
+
+                    local function isDamageZone(p)
+                        if not p:IsA("BasePart") then return false end
+                        local n = p.Name:lower()
+                        if n:find("damage") or n:find("kill") or n:find("death") or n:find("hurt") then
+                            return true
+                        end
+                        if p.Parent and p.Parent.Name:lower():find("damagezone") then return true end
+                        return false
+                    end
+
+                    local function apply(p)
+                        if not isDamageZone(p) or highlighted[p] then return end
+                        highlighted[p] = {
+                            Transparency = p.Transparency,
+                            Color = p.Color,
+                            Material = p.Material,
+                        }
+                        p.Transparency = 0.6
+                        p.Color = Color3.fromRGB(255, 200, 0)
+                        p.Material = Enum.Material.Neon
+                    end
+
+                    local function restore(p)
+                        local o = highlighted[p]
+                        if o and p.Parent then
+                            pcall(function()
+                                p.Transparency = o.Transparency
+                                p.Color = o.Color
+                                p.Material = o.Material
+                            end)
+                        end
+                        highlighted[p] = nil
+                    end
+
+                    for _, p in workspace:GetDescendants() do apply(p) end
+
+                    table.insert(conns, workspace.DescendantAdded:Connect(function(p)
+                        task.wait(0.1)
+                        apply(p)
+                    end))
+
+                    _G.dzakob_notify("Damage zones highlighted", "success")
+
+                    while _G.hub_toggles["Show Damage Zones"] do task.wait(1) end
+
+                    for _, c in conns do c:Disconnect() end
+                    for p in pairs(highlighted) do restore(p) end
+                    _G.dzakob_notify("Damage zones hidden")
+                end
+            },
+            {
                 Name = "Show Invisible Walls",
                 Description = "Highlight transparent collidable parts in red",
                 Type = "toggle",
