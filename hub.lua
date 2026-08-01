@@ -242,32 +242,95 @@ local Games = {
                 end
             },
             {
-                Name = "Fast Zombie Swings",
-                Description = "Halve Intruder Claws swing cooldown (re-equip claws)",
+                Name = "Zombie Long Reach",
+                Description = "Set all zombie melee range to 20 studs (default 8.5)",
                 Type = "toggle",
                 Run = function()
                     local WS = game:GetService("ReplicatedStorage").Assets.Modules.WeaponStats
-                    local claws = require(WS["Intruder Claws"])
-                    _G.zombieCooldownOrig = _G.zombieCooldownOrig or {
-                        SwingCooldown = claws.SwingCooldown,
-                        Swing1_SwingDelay = claws.Swings.Swing1.SwingDelay,
-                        Swing1_SwingEnd = claws.Swings.Swing1.SwingEnd,
-                        Swing2_SwingDelay = claws.Swings.Swing2.SwingDelay,
-                        Swing2_SwingEnd = claws.Swings.Swing2.SwingEnd,
-                    }
-                    claws.SwingCooldown = 0.05
-                    claws.Swings.Swing1.SwingDelay = 0.02
-                    claws.Swings.Swing1.SwingEnd = 0.05
-                    claws.Swings.Swing2.SwingDelay = 0.02
-                    claws.Swings.Swing2.SwingEnd = 0.05
-                    _G.dzakob_notify("Fast zombie swings active - re-equip claws", "success")
+                    local TARGET_RANGE = 20
+                    local extras = {"Bone Knight's Weaponry", "Nightmare Shovel"}
+
+                    _G.zombieRangeOrigs = _G.zombieRangeOrigs or {}
+                    local touched = {}
+
+                    for _, mod in WS:GetChildren() do
+                        local isZombieWep = mod.Name:find("Claws") ~= nil
+                        if not isZombieWep then
+                            for _, name in extras do
+                                if mod.Name == name then isZombieWep = true break end
+                            end
+                        end
+                        if isZombieWep then
+                            local ok, cfg = pcall(require, mod)
+                            if ok and cfg and cfg.SafeDistance then
+                                if not _G.zombieRangeOrigs[mod.Name] then
+                                    _G.zombieRangeOrigs[mod.Name] = cfg.SafeDistance
+                                end
+                                if cfg.SafeDistance < TARGET_RANGE then
+                                    cfg.SafeDistance = TARGET_RANGE
+                                    table.insert(touched, mod.Name)
+                                end
+                            end
+                        end
+                    end
+                    _G.dzakob_notify("Long reach on "..#touched.." zombies - re-equip", "success")
+
+                    while _G.hub_toggles["Zombie Long Reach"] do task.wait(1) end
+
+                    for _, mod in WS:GetChildren() do
+                        local orig = _G.zombieRangeOrigs[mod.Name]
+                        if orig then
+                            local ok, cfg = pcall(require, mod)
+                            if ok and cfg then cfg.SafeDistance = orig end
+                        end
+                    end
+                    _G.dzakob_notify("Zombie range restored")
+                end
+            },
+            {
+                Name = "Fast Zombie Swings",
+                Description = "Set all zombie melee cooldowns to 0.7 (re-equip weapon)",
+                Type = "toggle",
+                Run = function()
+                    local WS = game:GetService("ReplicatedStorage").Assets.Modules.WeaponStats
+                    local TARGET_COOLDOWN = 0.7
+                    -- boss/special zombie weapons that don't end in "Claws"
+                    local extras = {"Bone Knight's Weaponry", "Nightmare Shovel"}
+
+                    _G.zombieCooldownOrigs = _G.zombieCooldownOrigs or {}
+                    local touched = {}
+
+                    for _, mod in WS:GetChildren() do
+                        local isZombieWep = mod.Name:find("Claws") ~= nil
+                        if not isZombieWep then
+                            for _, name in extras do
+                                if mod.Name == name then isZombieWep = true break end
+                            end
+                        end
+                        if isZombieWep then
+                            local ok, cfg = pcall(require, mod)
+                            if ok and cfg and cfg.SwingCooldown then
+                                if not _G.zombieCooldownOrigs[mod.Name] then
+                                    _G.zombieCooldownOrigs[mod.Name] = cfg.SwingCooldown
+                                end
+                                if cfg.SwingCooldown > TARGET_COOLDOWN then
+                                    cfg.SwingCooldown = TARGET_COOLDOWN
+                                    table.insert(touched, mod.Name)
+                                end
+                            end
+                        end
+                    end
+                    _G.dzakob_notify("Fast swings on "..#touched.." zombies - re-equip", "success")
+
                     while _G.hub_toggles["Fast Zombie Swings"] do task.wait(1) end
-                    local o = _G.zombieCooldownOrig
-                    claws.SwingCooldown = o.SwingCooldown
-                    claws.Swings.Swing1.SwingDelay = o.Swing1_SwingDelay
-                    claws.Swings.Swing1.SwingEnd = o.Swing1_SwingEnd
-                    claws.Swings.Swing2.SwingDelay = o.Swing2_SwingDelay
-                    claws.Swings.Swing2.SwingEnd = o.Swing2_SwingEnd
+
+                    for _, mod in WS:GetChildren() do
+                        local orig = _G.zombieCooldownOrigs[mod.Name]
+                        if orig then
+                            local ok, cfg = pcall(require, mod)
+                            if ok and cfg then cfg.SwingCooldown = orig end
+                        end
+                    end
                     _G.dzakob_notify("Zombie swings restored")
                 end
             },
