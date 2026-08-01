@@ -240,6 +240,119 @@ local Games = {
                     end
                     _G.dzakob_notify("Recoil restored")
                 end
+            },
+            {
+                Name = "Fast Zombie Swings",
+                Description = "Halve Intruder Claws swing cooldown (re-equip claws)",
+                Type = "toggle",
+                Run = function()
+                    local WS = game:GetService("ReplicatedStorage").Assets.Modules.WeaponStats
+                    local claws = require(WS["Intruder Claws"])
+                    _G.zombieCooldownOrig = _G.zombieCooldownOrig or {
+                        SwingCooldown = claws.SwingCooldown,
+                        Swing1_SwingDelay = claws.Swings.Swing1.SwingDelay,
+                        Swing1_SwingEnd = claws.Swings.Swing1.SwingEnd,
+                        Swing2_SwingDelay = claws.Swings.Swing2.SwingDelay,
+                        Swing2_SwingEnd = claws.Swings.Swing2.SwingEnd,
+                    }
+                    claws.SwingCooldown = 0.05
+                    claws.Swings.Swing1.SwingDelay = 0.02
+                    claws.Swings.Swing1.SwingEnd = 0.05
+                    claws.Swings.Swing2.SwingDelay = 0.02
+                    claws.Swings.Swing2.SwingEnd = 0.05
+                    _G.dzakob_notify("Fast zombie swings active - re-equip claws", "success")
+                    while _G.hub_toggles["Fast Zombie Swings"] do task.wait(1) end
+                    local o = _G.zombieCooldownOrig
+                    claws.SwingCooldown = o.SwingCooldown
+                    claws.Swings.Swing1.SwingDelay = o.Swing1_SwingDelay
+                    claws.Swings.Swing1.SwingEnd = o.Swing1_SwingEnd
+                    claws.Swings.Swing2.SwingDelay = o.Swing2_SwingDelay
+                    claws.Swings.Swing2.SwingEnd = o.Swing2_SwingEnd
+                    _G.dzakob_notify("Zombie swings restored")
+                end
+            },
+            {
+                Name = "Zombie + Nest ESP",
+                Description = "Red outline on zombies, pink on flesh nests (through walls)",
+                Type = "toggle",
+                Run = function()
+                    local Players = game:GetService("Players")
+                    local lp = Players.LocalPlayer
+                    local ZOMBIE_COLOR = Color3.fromRGB(255, 80, 80)
+                    local NEST_COLOR = Color3.fromRGB(255, 100, 220)
+                    local highlighted = {}
+                    local conns = {}
+
+                    local function isZombie(model)
+                        if not model:IsA("Model") then return false end
+                        if model == lp.Character then return false end
+                        local hum = model:FindFirstChildOfClass("Humanoid")
+                        if not hum or hum.Health <= 0 then return false end
+                        local plr = Players:GetPlayerFromCharacter(model)
+                        if plr then return lp.Team and plr.Team ~= lp.Team end
+                        return model.Parent and model.Parent.Name == "Characters"
+                    end
+
+                    local function isFleshNest(inst)
+                        local n = inst.Name:lower()
+                        return (n:find("flesh") and n:find("nest")) or n == "fleshnest"
+                    end
+
+                    local function apply(inst)
+                        if highlighted[inst] then return end
+                        local color
+                        if isZombie(inst) then color = ZOMBIE_COLOR
+                        elseif isFleshNest(inst) then color = NEST_COLOR
+                        else return end
+                        local hl = Instance.new("Highlight")
+                        hl.Name = "TargetESP"
+                        hl.FillColor = color
+                        hl.FillTransparency = 0.7
+                        hl.OutlineColor = color
+                        hl.OutlineTransparency = 0
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Adornee = inst
+                        hl.Parent = inst
+                        highlighted[inst] = hl
+                    end
+
+                    local function remove(inst)
+                        if highlighted[inst] then
+                            highlighted[inst]:Destroy()
+                            highlighted[inst] = nil
+                        end
+                    end
+
+                    for _, d in workspace:GetDescendants() do apply(d) end
+
+                    table.insert(conns, workspace.DescendantAdded:Connect(function(d)
+                        task.wait(0.2)
+                        apply(d)
+                    end))
+                    table.insert(conns, workspace.DescendantRemoving:Connect(remove))
+
+                    _G.dzakob_notify("ESP active - red=zombies, pink=nests", "success")
+
+                    task.spawn(function()
+                        while _G.hub_toggles["Zombie + Nest ESP"] do
+                            for inst, _ in pairs(highlighted) do
+                                if not inst.Parent then
+                                    remove(inst)
+                                else
+                                    local hum = inst:FindFirstChildOfClass("Humanoid")
+                                    if hum and hum.Health <= 0 then remove(inst) end
+                                end
+                            end
+                            task.wait(1)
+                        end
+                    end)
+
+                    while _G.hub_toggles["Zombie + Nest ESP"] do task.wait(1) end
+
+                    for _, c in conns do c:Disconnect() end
+                    for inst, _ in pairs(highlighted) do remove(inst) end
+                    _G.dzakob_notify("ESP disabled")
+                end
             }
         }
     }
