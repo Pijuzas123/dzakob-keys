@@ -242,6 +242,62 @@ local Games = {
                 end
             },
             {
+                Name = "Show Invisible Walls",
+                Description = "Highlight transparent collidable parts in red",
+                Type = "toggle",
+                Run = function()
+                    local highlighted = {}
+                    local conns = {}
+
+                    local function isInvisWall(p)
+                        return p:IsA("BasePart")
+                            and p.Transparency > 0.9
+                            and p.CanCollide
+                            and not p:IsDescendantOf(workspace.CurrentCamera)
+                            and not (p.Parent and p.Parent:FindFirstChildOfClass("Humanoid"))
+                    end
+
+                    local function apply(p)
+                        if not isInvisWall(p) or highlighted[p] then return end
+                        highlighted[p] = {
+                            Transparency = p.Transparency,
+                            Color = p.Color,
+                            Material = p.Material,
+                        }
+                        p.Transparency = 0.5
+                        p.Color = Color3.fromRGB(255, 0, 100)
+                        p.Material = Enum.Material.Neon
+                    end
+
+                    local function restore(p)
+                        local o = highlighted[p]
+                        if o and p.Parent then
+                            pcall(function()
+                                p.Transparency = o.Transparency
+                                p.Color = o.Color
+                                p.Material = o.Material
+                            end)
+                        end
+                        highlighted[p] = nil
+                    end
+
+                    for _, p in workspace:GetDescendants() do apply(p) end
+
+                    table.insert(conns, workspace.DescendantAdded:Connect(function(p)
+                        task.wait(0.1)
+                        apply(p)
+                    end))
+
+                    _G.dzakob_notify("Invisible walls highlighted", "success")
+
+                    while _G.hub_toggles["Show Invisible Walls"] do task.wait(1) end
+
+                    for _, c in conns do c:Disconnect() end
+                    for p in pairs(highlighted) do restore(p) end
+                    _G.dzakob_notify("Invisible walls hidden")
+                end
+            },
+            {
                 Name = "Zombie Long Reach",
                 Description = "Set all zombie melee range to 20 studs (default 8.5)",
                 Type = "toggle",
